@@ -13,7 +13,6 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  // Renvoie un utilisateur ou undefined (conversion de null en undefined)
   async findByEmail(email: string): Promise<User | undefined> {
     const user = await this.usersRepository.findOne({ where: { email } });
     return user || undefined;
@@ -38,8 +37,10 @@ export class UsersService {
     return Array.isArray(savedUser) ? savedUser[0] : savedUser;
   }
 
-  // Mise à jour du profil (hors mot de passe)
-  async updateProfile(userId: number, updateData: UpdateUserDto): Promise<User> {
+  async updateProfile(
+    userId: number,
+    updateData: UpdateUserDto,
+  ): Promise<User> {
     await this.usersRepository.update(userId, updateData);
     const updatedUser = await this.findById(userId);
     if (!updatedUser) {
@@ -48,16 +49,16 @@ export class UsersService {
     return updatedUser;
   }
 
-  // Mise à jour du mot de passe
   async updatePassword(
     userId: number,
     updatePasswordDto: UpdatePasswordDto,
   ): Promise<User> {
     const { oldPassword, newPassword, confirmPassword } = updatePasswordDto;
     if (newPassword !== confirmPassword) {
-      throw new UnauthorizedException('Le nouveau mot de passe et sa confirmation ne correspondent pas.');
+      throw new UnauthorizedException(
+        'Les mots de passe ne correspondent pas.',
+      );
     }
-
     const user = await this.findById(userId);
     if (!user) {
       throw new UnauthorizedException('Utilisateur non trouvé');
@@ -71,12 +72,27 @@ export class UsersService {
     await this.usersRepository.update(userId, { password: hashedPassword });
     const updatedUser = await this.findById(userId);
     if (!updatedUser) {
-      throw new UnauthorizedException('Erreur lors de la mise à jour du mot de passe');
+      throw new UnauthorizedException(
+        'Erreur lors de la mise à jour du mot de passe',
+      );
     }
     return updatedUser;
   }
 
   async deleteUser(id: number): Promise<void> {
     await this.usersRepository.delete(id);
+  }
+
+  // Nouvelle méthode pour trouver un utilisateur par token de réinitialisation
+  async findByResetToken(token: string): Promise<User | undefined> {
+    const user = await this.usersRepository.findOne({
+      where: { resetPasswordToken: token },
+    });
+    return user || undefined;
+  }
+
+  // Méthode générique d'update utilisée par le service Auth pour le reset password
+  async update(userId: number, updateData: Partial<User>): Promise<void> {
+    await this.usersRepository.update(userId, updateData);
   }
 }

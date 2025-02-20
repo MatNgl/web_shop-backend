@@ -4,12 +4,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { User } from './users/user.entity';
+import { ProduitsModule } from './produits/produits.module';
+import { Produit } from './produits/entities/produit.entity';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ 
+    ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env'  // Forcer la lecture du fichier .env
+      envFilePath: '.env'// Forcer la lecture du fichier .env
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -18,11 +20,12 @@ import { User } from './users/user.entity';
       username: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'admin',
       database: process.env.DB_NAME || 'web_shop',
-      entities: [User],
+      entities: [User, Produit],
       synchronize: true,
     }),
     AuthModule,
     UsersModule,
+    ProduitsModule,
   ],
 })
 export class AppModule {}
