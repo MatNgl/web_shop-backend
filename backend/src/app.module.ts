@@ -10,6 +10,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { Category } from './categories/entities/category.entity';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Promotion } from './promotions/entities/promotion.entity';
+import { ProduitStatut } from './produits/entities/produit-statuts.entity';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { Promotion } from './promotions/entities/promotion.entity';
       username: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'admin',
       database: process.env.DB_NAME || 'web_shop',
-      entities: [User, Produit, Category, Promotion],
+      entities: [User, Produit, Category, Promotion, ProduitStatut],
       synchronize: true,
     }),
     AuthModule,
@@ -33,5 +34,7 @@ import { Promotion } from './promotions/entities/promotion.entity';
     CategoriesModule,
     PromotionsModule,
   ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
