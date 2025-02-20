@@ -27,7 +27,6 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 export class ProduitsController {
   constructor(private readonly produitsService: ProduitsService) {}
 
-  // Endpoint accessible à tous pour la consultation
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les produits' })
   @ApiResponse({ status: 200, description: 'Liste de produits.' })
@@ -43,9 +42,8 @@ export class ProduitsController {
     return this.produitsService.findOne(+id);
   }
 
-  // Endpoints réservés aux administrateurs
-  @UseGuards(JwtAuthGuard)
   @Post()
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Créer un nouveau produit (admin uniquement)' })
   @ApiResponse({ status: 201, description: 'Produit créé avec succès.' })
@@ -54,8 +52,8 @@ export class ProduitsController {
     return this.produitsService.create(createProduitDto, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Mettre à jour un produit (admin uniquement)' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
@@ -69,8 +67,8 @@ export class ProduitsController {
     return this.produitsService.update(+id, updateProduitDto, req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Supprimer un produit (admin uniquement)' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
@@ -78,5 +76,67 @@ export class ProduitsController {
   async remove(@Param('id') id: string, @Request() req) {
     await this.produitsService.remove(+id, req.user);
     return { message: `Produit #${id} supprimé` };
+  }
+
+  @Patch(':id/stock')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Mettre à jour le stock d’un produit (admin uniquement)',
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
+  @ApiBody({
+    description: 'Nouvelle quantité en stock',
+    schema: {
+      type: 'object',
+      properties: {
+        stock: { type: 'number', example: 150 },
+      },
+      required: ['stock'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Stock mis à jour avec succès.' })
+  async updateStock(
+    @Param('id') id: string,
+    @Body('stock') stock: number,
+    @Request() req,
+  ) {
+    return await this.produitsService.updateStock(+id, stock, req.user);
+  }
+
+  @Patch(':id/promotion')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Appliquer ou retirer une promotion (admin uniquement)',
+    description:
+      'Met à jour le champ promotion_id du produit et recalcule ses statuts.',
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
+  @ApiBody({
+    description:
+      'Objet contenant le champ promotion_id (ou null pour retirer la promotion)',
+    schema: {
+      type: 'object',
+      properties: {
+        promotion_id: { type: 'number', example: 2 },
+      },
+      required: ['promotion_id'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotion appliquée et statut mis à jour avec succès.',
+  })
+  async applyPromotion(
+    @Param('id') id: string,
+    @Body('promotion_id') promotionId: number | null,
+    @Request() req,
+  ) {
+    return await this.produitsService.applyPromotion(
+      +id,
+      promotionId,
+      req.user,
+    );
   }
 }

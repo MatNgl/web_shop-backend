@@ -47,6 +47,8 @@ export class PromotionsController {
   }
 
   // Endpoints réservés aux administrateurs
+
+  // Créer une nouvelle promotion
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -57,6 +59,7 @@ export class PromotionsController {
     return this.promotionsService.create(createPromotionDto, req.user);
   }
 
+  // Mettre à jour une promotion
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -75,6 +78,7 @@ export class PromotionsController {
     return this.promotionsService.update(+id, updatePromotionDto, req.user);
   }
 
+  //Supprimer une promotion
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -82,6 +86,7 @@ export class PromotionsController {
   @ApiParam({ name: 'id', type: 'number', description: 'ID de la promotion' })
   @ApiResponse({ status: 200, description: 'Promotion supprimée avec succès.' })
   async remove(@Param('id') id: string, @Request() req) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await this.promotionsService.remove(+id, req.user);
     return { message: `Promotion #${id} supprimée` };
   }
