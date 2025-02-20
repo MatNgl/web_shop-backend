@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // src/auth/auth.controller.ts
 import {
   Controller,
   Post,
   Body,
   UseGuards,
-  Get,
-  Request,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -18,6 +19,8 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Authentification')
 @Controller('auth')
@@ -92,38 +95,6 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Profil complet de l’utilisateur',
-    description:
-      'Récupère toutes les informations de l’utilisateur connecté (sauf le mot de passe).',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Profil retourné avec succès.',
-    schema: {
-      example: {
-        id: 1,
-        prenom: 'Alice',
-        nom: 'Martin',
-        email: 'alice.martin@example.com',
-        telephone: null,
-        role: 'user',
-        created_at: '2025-02-19T21:48:17.144Z',
-        updated_at: '2025-02-19T21:48:17.144Z',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Non autorisé. Le token est manquant ou invalide.',
-  })
-  async getProfile(@Request() req) {
-    return this.authService.getProfile(req.user.id);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
   @ApiBearerAuth('access-token')
   @ApiOperation({
@@ -136,11 +107,64 @@ export class AuthController {
     description:
       'Déconnexion réussie. Veuillez supprimer le token côté client.',
   })
-  logout(@Request() req) {
+  logout() {
     // Comme les JWT sont stateless, il n'est pas possible d'invalider le token côté serveur.
     // On se contente d'informer le client.
     return {
       message: 'Déconnexion réussie. Veuillez supprimer le token côté client.',
     };
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({
+    summary: 'Mot de passe oublié',
+    description:
+      'Envoie un email de réinitialisation du mot de passe si le compte existe.',
+  })
+  @ApiBody({
+    description: 'Email de l’utilisateur',
+    type: ForgotPasswordDto,
+    examples: {
+      default: {
+        summary: 'Exemple',
+        value: { email: 'alice.martin@example.com' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Si le compte existe, un email de réinitialisation a été envoyé.',
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({
+    summary: 'Réinitialisation du mot de passe',
+    description:
+      'Permet à l’utilisateur de réinitialiser son mot de passe en fournissant un token valide.',
+  })
+  @ApiBody({
+    description: 'Token de réinitialisation et nouveau mot de passe',
+    type: ResetPasswordDto,
+    examples: {
+      default: {
+        summary: 'Exemple',
+        value: {
+          token: 'votreTokenIci',
+          newPassword: 'nouveauMotdepasse456',
+          confirmPassword: 'nouveauMotdepasse456',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Mot de passe réinitialisé avec succès.',
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }

@@ -1,5 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-import { Controller, Patch, Body, UseGuards, Request, Delete } from '@nestjs/common';
+// src/users/users.controller.ts
+import {
+  Controller,
+  Patch,
+  Body,
+  UseGuards,
+  Request,
+  Delete,
+  Get,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -15,31 +23,87 @@ import {
 @ApiTags('Utilisateurs')
 @Controller('users')
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Récupération du profil',
+    description:
+      'Récupère toutes les informations de l’utilisateur connecté (sauf le mot de passe).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profil retourné avec succès.',
+    schema: {
+      example: {
+        id: 1,
+        prenom: 'Alice',
+        nom: 'Martin',
+        email: 'alice.martin@example.com',
+        telephone: '0123456789',
+        role: 'user',
+        created_at: '2025-02-19T21:48:17.144Z',
+        updated_at: '2025-02-19T21:48:17.144Z',
+      },
+    },
+  })
+  async getProfile(@Request() req) {
+    return await this.usersService.findById(req.user.id);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Mettre à jour le profil de l’utilisateur',
+    summary: 'Mise à jour du profil',
     description:
-      'Modifie les informations personnelles de l’utilisateur connecté. La mise à jour sera validée uniquement si toutes les données sont conformes, notamment un téléphone à 10 chiffres.',
+      'Met à jour les informations de l’utilisateur connecté via une opération update. La mise à jour est validée uniquement si toutes les données sont conformes (par exemple, le téléphone doit comporter 10 chiffres).',
   })
-  @ApiBody({ type: UpdateUserDto })
+  @ApiBody({
+    description: 'Données à mettre à jour',
+    type: UpdateUserDto,
+    examples: {
+      default: {
+        summary: 'Exemple de mise à jour',
+        value: {
+          prenom: 'Alice',
+          nom: 'Martin',
+          email: 'alice.martin@example.com',
+          telephone: '0123456789',
+          role: 'user',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 200, description: 'Profil mis à jour avec succès.' })
   async updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.updateProfile(req.user.id, updateUserDto);
+    return await this.usersService.updateProfile(req.user.id, updateUserDto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('password')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Changer le mot de passe',
+    summary: 'Mise à jour du mot de passe',
     description:
-      'Permet à l’utilisateur connecté de modifier son mot de passe en fournissant l’ancien mot de passe, le nouveau et sa confirmation.',
+      'Modifie le mot de passe de l’utilisateur connecté en validant l’ancien mot de passe et en s’assurant que le nouveau correspond à la confirmation.',
   })
-  @ApiBody({ type: UpdatePasswordDto })
+  @ApiBody({
+    description: 'Données pour la mise à jour du mot de passe',
+    type: UpdatePasswordDto,
+    examples: {
+      default: {
+        summary: 'Exemple de mise à jour du mot de passe',
+        value: {
+          oldPassword: 'ancienMotdepasse123',
+          newPassword: 'nouveauMotdepasse456',
+          confirmPassword: 'nouveauMotdepasse456',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 200,
     description: 'Mot de passe mis à jour avec succès.',
@@ -48,7 +112,10 @@ export class UsersController {
     @Request() req,
     @Body() updatePasswordDto: UpdatePasswordDto,
   ) {
-    return this.usersService.updatePassword(req.user.id, updatePasswordDto);
+    return await this.usersService.updatePassword(
+      req.user.id,
+      updatePasswordDto,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -56,7 +123,8 @@ export class UsersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Suppression du compte',
-    description: 'Supprime le compte de l’utilisateur connecté.',
+    description:
+      'Supprime le compte de l’utilisateur connecté via une opération delete.',
   })
   @ApiResponse({ status: 200, description: 'Compte supprimé avec succès.' })
   async deleteAccount(@Request() req) {
