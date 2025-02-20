@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -23,7 +24,7 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user.id, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
     };
@@ -91,13 +92,12 @@ export class AuthService {
     return { message: 'Mot de passe réinitialisé avec succès.' };
   }
 
-  // Optionnel: Méthode pour récupérer le profil complet de l'utilisateur
   async getProfile(userId: number): Promise<any> {
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('Utilisateur non trouvé');
     }
-    const { password, ...result } = user;
+    const { password: _unused, ...result } = user;
     return result;
   }
 }

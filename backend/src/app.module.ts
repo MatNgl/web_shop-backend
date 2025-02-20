@@ -6,12 +6,16 @@ import { UsersModule } from './users/users.module';
 import { User } from './users/user.entity';
 import { ProduitsModule } from './produits/produits.module';
 import { Produit } from './produits/entities/produit.entity';
+import { CategoriesModule } from './categories/categories.module';
+import { Category } from './categories/entities/category.entity';
+import { PromotionsModule } from './promotions/promotions.module';
+import { Promotion } from './promotions/entities/promotion.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env'// Forcer la lecture du fichier .env
+      envFilePath: '.env',
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -20,12 +24,14 @@ import { Produit } from './produits/entities/produit.entity';
       username: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'admin',
       database: process.env.DB_NAME || 'web_shop',
-      entities: [User, Produit],
+      entities: [User, Produit, Category, Promotion],
       synchronize: true,
     }),
     AuthModule,
     UsersModule,
     ProduitsModule,
+    CategoriesModule,
+    PromotionsModule,
   ],
 })
 export class AppModule {}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 // src/users/users.controller.ts
 import {
   Controller,
@@ -50,6 +51,7 @@ export class UsersController {
     },
   })
   async getProfile(@Request() req) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return await this.usersService.findById(req.user.id);
   }
 

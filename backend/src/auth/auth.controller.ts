@@ -31,7 +31,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Inscription d’un utilisateur',
     description:
-      'Enregistre un nouvel utilisateur dans la base de données. Des données par défaut sont fournies pour faciliter les tests.',
+      'Enregistre un nouvel utilisateur dans la base de données. Vous pouvez choisir le rôle ("user" ou "admin").',
   })
   @ApiBody({
     description: 'Informations de l’utilisateur',
@@ -45,6 +45,7 @@ export class AuthController {
           email: 'alice.martin@example.com',
           password: 'motdepasse123',
           telephone: '0123456789',
+          role: 'user',
         },
       },
     },
