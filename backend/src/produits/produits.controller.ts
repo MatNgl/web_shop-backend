@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { ProduitsService } from './produits.service';
 import { CreateProduitDto } from './dto/create-produit.dto';
@@ -19,6 +20,7 @@ import {
   ApiBody,
   ApiParam,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
@@ -33,6 +35,25 @@ export class ProduitsController {
   async findAll() {
     return this.produitsService.findAll();
   }
+  // Nouvel endpoint pour la recherche par nom
+  @Get('search')
+  @ApiOperation({
+    summary: 'Rechercher des produits par nom',
+    description:
+      'Recherche des produits dont le nom contient le terme fourni (insensible à la casse).',
+  })
+  @ApiQuery({
+    name: 'nom',
+    type: 'string',
+    description: 'Le terme à rechercher dans le nom du produit',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des produits correspondant au terme de recherche.',
+  })
+  async search(@Query('nom') nom: string) {
+    return this.produitsService.searchByName(nom);
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un produit par son ID' })
@@ -42,6 +63,7 @@ export class ProduitsController {
     return this.produitsService.findOne(+id);
   }
 
+  // Endpoints réservés aux administrateurs
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')

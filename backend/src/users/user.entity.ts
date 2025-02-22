@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { Panier } from 'src/panier/entities/panier.entity';
 
 @Entity()
 export class User {
@@ -40,4 +42,8 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   resetPasswordExpires?: Date;
+
+  // Relation bidirectionnelle vers Panier
+  @OneToMany(() => Panier, (panier) => panier.user)
+  paniers: Panier[];
 }

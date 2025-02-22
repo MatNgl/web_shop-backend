@@ -11,6 +11,11 @@ import { Category } from './categories/entities/category.entity';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Promotion } from './promotions/entities/promotion.entity';
 import { ProduitStatut } from './produits/entities/produit-statuts.entity';
+import { PanierModule } from './panier/panier.module';
+import { AppService } from './app.service';
+import { AppController } from './app.controller';
+import { Panier } from './panier/entities/panier.entity';
+import { ArticlePanier } from './panier/entities/article-panier.entity';
 
 @Module({
   imports: [
@@ -25,16 +30,25 @@ import { ProduitStatut } from './produits/entities/produit-statuts.entity';
       username: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'admin',
       database: process.env.DB_NAME || 'web_shop',
-      entities: [User, Produit, Category, Promotion, ProduitStatut],
+      entities: [
+        User,
+        Produit,
+        Category,
+        Promotion,
+        ProduitStatut,
+        Panier,
+        ArticlePanier,
+      ],
       synchronize: true,
     }),
     AuthModule,
     UsersModule,
-    ProduitsModule,
     CategoriesModule,
+    ProduitsModule,
+    PanierModule,
     PromotionsModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
