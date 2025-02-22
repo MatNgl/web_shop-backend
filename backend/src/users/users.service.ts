@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,16 +15,17 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
+  // Méthode trouver user par email
   async findByEmail(email: string): Promise<User | undefined> {
     const user = await this.usersRepository.findOne({ where: { email } });
     return user || undefined;
   }
-
+  // Méthode trouver user par id
   async findById(id: number): Promise<User | undefined> {
     const user = await this.usersRepository.findOne({ where: { id } });
     return user || undefined;
   }
-
+  // Méthode créer user
   async create(userData: any): Promise<User> {
     if (Array.isArray(userData)) {
       userData = userData[0];
@@ -37,7 +39,7 @@ export class UsersService {
     const savedUser = await this.usersRepository.save(user);
     return Array.isArray(savedUser) ? savedUser[0] : savedUser;
   }
-
+  // Méthode suppression user
   async updateProfile(
     userId: number,
     updateData: UpdateUserDto,
@@ -50,6 +52,7 @@ export class UsersService {
     return updatedUser;
   }
 
+  // Méthode update password
   async updatePassword(
     userId: number,
     updatePasswordDto: UpdatePasswordDto,
@@ -80,11 +83,12 @@ export class UsersService {
     return updatedUser;
   }
 
+  // Méthode suppression user
   async deleteUser(id: number): Promise<void> {
     await this.usersRepository.delete(id);
   }
 
-  // Nouvelle méthode pour trouver un utilisateur par token de réinitialisation
+  // Méthode pour trouver un utilisateur par token de réinitialisation
   async findByResetToken(token: string): Promise<User | undefined> {
     const user = await this.usersRepository.findOne({
       where: { resetPasswordToken: token },
