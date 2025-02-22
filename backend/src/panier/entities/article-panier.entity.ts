@@ -9,6 +9,7 @@ export class ArticlePanier {
   id: number;
 
   // Lien vers le panier
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @ManyToOne(() => Panier, (panier) => panier.articles, { onDelete: 'CASCADE' })
   panier: Panier;
 
