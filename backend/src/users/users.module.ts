@@ -3,10 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-import { CommandeModule } from 'src/commandes/commande.module';
+import { CommandesModule } from 'src/commandes/commandes.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), CommandeModule],
+  imports: [TypeOrmModule.forFeature([User]), CommandesModule],
   providers: [UsersService],
   controllers: [UsersController],
   exports: [UsersService],
