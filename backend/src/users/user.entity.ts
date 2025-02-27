@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Panier } from 'src/panier/entities/panier.entity';
+import { Commande } from 'src/commandes/entities/commande.entity';
 
 @Entity()
 export class User {
@@ -46,4 +47,8 @@ export class User {
   // Relation bidirectionnelle vers Panier
   @OneToMany(() => Panier, (panier) => panier.user)
   paniers: Panier[];
+
+  @OneToMany(() => Commande, (commande) => commande.user)
+  commandes: Commande[];
+  adresses: any;
 }

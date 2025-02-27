@@ -114,4 +114,11 @@ export class PanierService {
   async getPanier(user: UserPayload): Promise<Panier> {
     return await this.getOrCreatePanier(user.id);
   }
+
+  async viderPanier(user: UserPayload): Promise<void> {
+    const panier = await this.getOrCreatePanier(user.id);
+    if (!panier.articles.length) return;
+
+    await this.articlePanierRepository.delete({ panier: { id: panier.id } });
+  }
 }

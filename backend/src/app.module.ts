@@ -16,6 +16,7 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { Panier } from './panier/entities/panier.entity';
 import { ArticlePanier } from './panier/entities/article-panier.entity';
+import { Commande } from './commandes/entities/commande.entity';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ArticlePanier } from './panier/entities/article-panier.entity';
         ProduitStatut,
         Panier,
         ArticlePanier,
+        Commande,
       ],
       synchronize: true,
     }),
