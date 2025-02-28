@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import {
   Controller,
   Get,
@@ -10,7 +12,6 @@ import {
   Request,
   BadRequestException,
 } from '@nestjs/common';
-import { PanierService } from './panier.service';
 import {
   ApiTags,
   ApiOperation,
@@ -19,9 +20,10 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { AddProductDto } from './dto/add-product.dto';
+import { PanierService } from './panier.service';
+import { ValidatePanierDto } from './dto/validate-panier.dto';
 import { UpdateQuantityDto } from './dto/update-quantity.dto';
-import { Panier } from './entities/panier.entity';
+import { AddProductDto } from './dto/add-product.dto';
 
 @ApiTags('Panier')
 @Controller('panier')
@@ -166,5 +168,43 @@ export class PanierController {
   })
   async removeArticle(@Request() req, @Param('articleId') articleId: number) {
     return this.panierService.removeArticle(req.user, articleId);
+  }
+
+  @Post('validate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Valider le panier et créer une commande' })
+  @ApiBody({
+    description:
+      'Les informations de livraison et de paiement pour la commande',
+    type: ValidatePanierDto,
+    examples: {
+      exemple1: {
+        summary: 'Exemple de validation de panier',
+        value: {
+          shippingAddress: '123 Rue de Paris, 75000 Paris',
+          paymentMethod: 'Carte bancaire',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Commande créée avec succès.' })
+  async validatePanier(
+    @Request() req,
+    @Body() validatePanierDto: ValidatePanierDto,
+  ) {
+    // Vérifier que le panier contient au moins un article
+    const panier = await this.panierService.getPanier(req.user);
+    if (!panier.articles || panier.articles.length === 0) {
+      throw new BadRequestException(
+        'Votre panier est vide, vous ne pouvez pas passer commande.',
+      );
+    }
+
+    return await this.panierService.validatePanier(
+      req.user,
+      validatePanierDto.shippingAddress,
+      validatePanierDto.paymentMethod,
+    );
   }
 }

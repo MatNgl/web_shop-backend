@@ -9,6 +9,8 @@ import { Panier } from './entities/panier.entity';
 import { ArticlePanier } from './entities/article-panier.entity';
 import { Produit } from 'src/produits/entities/produit.entity';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
+import { CommandesService } from 'src/commandes/commandes.service';
+import { CreateCommandeDto } from 'src/commandes/dto/create-commande.dto';
 
 @Injectable()
 export class PanierService {
@@ -19,6 +21,7 @@ export class PanierService {
     private readonly articlePanierRepository: Repository<ArticlePanier>,
     @InjectRepository(Produit)
     private readonly produitRepository: Repository<Produit>,
+    private readonly commandesService: CommandesService,
   ) {}
 
   async getOrCreatePanier(userId: number): Promise<Panier> {
@@ -28,6 +31,7 @@ export class PanierService {
     });
     if (!panier) {
       panier = this.panierRepository.create({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         user: { id: userId } as any,
       });
       panier = await this.panierRepository.save(panier);
@@ -120,5 +124,26 @@ export class PanierService {
     if (!panier.articles.length) return;
 
     await this.articlePanierRepository.delete({ panier: { id: panier.id } });
+  }
+
+  // Méthode pour valider le panier et créer une commande
+  async validatePanier(
+    user: UserPayload,
+    shippingAddress: string,
+    paymentMethod: string,
+  ) {
+    // Création de la commande à partir des informations du panier
+    const createCommandeDto: CreateCommandeDto = {
+      userId: user.id,
+      shippingAddress,
+      paymentMethod,
+    };
+
+    const commande = await this.commandesService.create(createCommandeDto);
+
+    // Vider le panier après validation
+    await this.viderPanier(user);
+
+    return commande;
   }
 }
