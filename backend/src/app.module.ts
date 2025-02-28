@@ -17,6 +17,9 @@ import { AppController } from './app.controller';
 import { Panier } from './panier/entities/panier.entity';
 import { ArticlePanier } from './panier/entities/article-panier.entity';
 import { Commande } from './commandes/entities/commande.entity';
+import { Wishlist } from './wishlist/entities/wishlist.entity';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
 
 @Module({
   imports: [
@@ -40,6 +43,8 @@ import { Commande } from './commandes/entities/commande.entity';
         Panier,
         ArticlePanier,
         Commande,
+        Wishlist,
+        WishlistItem,
       ],
       synchronize: true,
     }),
@@ -49,6 +54,7 @@ import { Commande } from './commandes/entities/commande.entity';
     ProduitsModule,
     PanierModule,
     PromotionsModule,
+    WishlistModule,
   ],
   controllers: [AppController],
   providers: [AppService],

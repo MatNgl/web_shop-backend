@@ -132,7 +132,14 @@ export class PanierService {
     shippingAddress: string,
     paymentMethod: string,
   ) {
-    // Création de la commande à partir des informations du panier
+    const panier = await this.getOrCreatePanier(user.id);
+
+    if (!panier.articles || panier.articles.length === 0) {
+      throw new BadRequestException(
+        'Votre panier est vide, vous ne pouvez pas passer commande.',
+      );
+    }
+
     const createCommandeDto: CreateCommandeDto = {
       userId: user.id,
       shippingAddress,
@@ -141,7 +148,7 @@ export class PanierService {
 
     const commande = await this.commandesService.create(createCommandeDto);
 
-    // Vider le panier après validation
+    // Vider le panier après la validation
     await this.viderPanier(user);
 
     return commande;

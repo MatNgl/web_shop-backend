@@ -1,5 +1,7 @@
+// src/commandes/dto/create-commande.dto.ts
 export class CreateCommandeDto {
-  shippingAddress?: string;
-  paymentMethod?: string;
-  userId: number;
+  // Optionnels : ils pourront être renseignés dès la validation du panier
+  readonly shippingAddress?: string;
+  readonly paymentMethod?: string;
+  readonly userId: number;
 }

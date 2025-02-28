@@ -1,7 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// src/commandes/commandes.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Commande } from './entities/commande.entity';
+import {
+  Commande,
+  OrderStatus,
+  PaymentStatus,
+  ShippingStatus,
+} from './entities/commande.entity';
 import { CreateCommandeDto } from './dto/create-commande.dto';
 import { UpdateCommandeDto } from './dto/update-commande.dto';
 
@@ -13,7 +20,12 @@ export class CommandesService {
   ) {}
 
   async create(createCommandeDto: CreateCommandeDto): Promise<Commande> {
-    const commande = this.commandeRepository.create(createCommandeDto);
+    const commande = this.commandeRepository.create({
+      shippingAddress: createCommandeDto.shippingAddress,
+      paymentMethod: createCommandeDto.paymentMethod,
+      user: { id: createCommandeDto.userId } as any,
+      // Les statuts et autres champs sont initialisés par défaut
+    });
     return this.commandeRepository.save(commande);
   }
 
@@ -33,10 +45,10 @@ export class CommandesService {
     id: number,
     updateCommandeDto: UpdateCommandeDto,
   ): Promise<Commande> {
-    // Si les deux infos de livraison et paiement sont présentes,
-    // on passe le statut à "validated"
+    // Par exemple, si l'adresse et le mode de paiement sont renseignés via la validation du panier,
+    // on peut automatiquement passer la commande au statut VALIDATED
     if (updateCommandeDto.shippingAddress && updateCommandeDto.paymentMethod) {
-      updateCommandeDto.status = 'validated';
+      updateCommandeDto.orderStatus = OrderStatus.VALIDATED;
     }
     await this.commandeRepository.update(id, updateCommandeDto);
     return this.findOne(id);

@@ -10,7 +10,13 @@ import {
 import { CommandesService } from './commandes.service';
 import { CreateCommandeDto } from './dto/create-commande.dto';
 import { UpdateCommandeDto } from './dto/update-commande.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiParam,
+} from '@nestjs/swagger';
 
 @ApiTags('Commandes')
 @Controller('commandes')
@@ -18,21 +24,45 @@ export class CommandesController {
   constructor(private readonly commandesService: CommandesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Créer une nouvelle commande' })
+  @ApiOperation({
+    summary: 'Créer une nouvelle commande (à partir d’un panier validé)',
+  })
+  @ApiBody({
+    description: 'Données nécessaires pour créer une commande',
+    type: CreateCommandeDto,
+    examples: {
+      exemple1: {
+        summary: 'Commande créée avec adresse et mode de paiement',
+        value: {
+          shippingAddress: '123 Rue de Paris, 75000 Paris',
+          paymentMethod: 'Carte bancaire',
+          userId: 1,
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Commande créée avec succès.' })
   async create(@Body() createCommandeDto: CreateCommandeDto) {
     return this.commandesService.create(createCommandeDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Récupérer toutes les commandes' })
-  @ApiResponse({ status: 200, description: 'Liste des commandes.' })
+  @ApiOperation({ summary: 'Récupérer toutes les commandes (admin)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des commandes avec leur statut.',
+  })
   async findAll() {
     return this.commandesService.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Récupérer une commande par ID' })
+  @ApiOperation({ summary: 'Récupérer une commande par ID (admin)' })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: "L'identifiant de la commande",
+  })
   @ApiResponse({ status: 200, description: 'Commande trouvée.' })
   async findOne(@Param('id') id: number) {
     return this.commandesService.findOne(id);
@@ -40,7 +70,32 @@ export class CommandesController {
 
   @Patch(':id')
   @ApiOperation({
-    summary: 'Mettre à jour une commande (adresse, paiement puis validation)',
+    summary: 'Mettre à jour une commande (adresse, paiement, statuts, suivi)',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: "L'identifiant de la commande à mettre à jour",
+  })
+  @ApiBody({
+    description:
+      'Données pour mettre à jour la commande, ex. modifier l’adresse, simuler le paiement ou mettre à jour les statuts.',
+    type: UpdateCommandeDto,
+    examples: {
+      exemple1: {
+        summary: 'Mise à jour avec validation de paiement et livraison',
+        value: {
+          shippingAddress: '456 Rue de Lyon, 69000 Lyon',
+          paymentMethod: 'Paypal',
+          orderStatus: 'validated',
+          paymentStatus: 'validated',
+          shippingStatus: 'expediee',
+          shippingCost: 9.99,
+          expeditionDate: '2025-03-01T10:00:00.000Z',
+          estimatedDeliveryDate: '2025-03-05T12:00:00.000Z',
+        },
+      },
+    },
   })
   @ApiResponse({ status: 200, description: 'Commande mise à jour.' })
   async update(
@@ -51,7 +106,12 @@ export class CommandesController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Supprimer une commande' })
+  @ApiOperation({ summary: 'Supprimer une commande (admin)' })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: "L'identifiant de la commande à supprimer",
+  })
   @ApiResponse({ status: 200, description: 'Commande supprimée.' })
   async remove(@Param('id') id: number) {
     return this.commandesService.remove(id);
