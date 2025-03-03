@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -51,4 +52,5 @@ export class User {
   @OneToMany(() => Commande, (commande) => commande.user)
   commandes: Commande[];
   adresses: any;
+  wishlists: any;
 }
