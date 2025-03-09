@@ -101,17 +101,14 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    // Extraire images du DTO
     const { images, ...produitData } = createProduitDto;
     const produit = this.produitRepository.create(produitData);
-    // Déterminer le statut unique à appliquer
     produit.statut = await this.determineStatut(
       produit.stock ?? 0,
       produit.promotion_id,
     );
     const savedProduct = await this.produitRepository.save(produit);
 
-    // Si des images sont fournies, les insérer dans la table produit_image
     if (images && images.length > 0) {
       for (const url of images) {
         const produitImage = this.produitImageRepository.create({
@@ -121,7 +118,6 @@ export class ProduitsService {
         await this.produitImageRepository.save(produitImage);
       }
     }
-
     return savedProduct;
   }
 
@@ -164,7 +160,7 @@ export class ProduitsService {
     }
     const { images, ...updateData } = updateProduitDto;
     const produit = await this.produitRepository.preload({
-      id: id,
+      id,
       ...updateData,
     });
     if (!produit) {
@@ -188,7 +184,6 @@ export class ProduitsService {
         await this.produitImageRepository.save(produitImage);
       }
     }
-
     return updatedProduct;
   }
 

@@ -1,55 +1,57 @@
-// create-produit.dto.ts
-
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, IsNotEmpty, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsNotEmpty,
+  IsArray,
+} from 'class-validator';
 
 export class CreateProduitDto {
-  @ApiProperty({ example: 'Mon Produit', description: 'Nom du produit' })
+  @ApiProperty({ example: 'Mon Produit' })
   @IsString()
   @IsNotEmpty()
   nom: string;
 
-  @ApiProperty({
-    example: 'Ceci est la description du produit',
-    description: 'Description du produit',
-    required: false,
-  })
+  @ApiPropertyOptional({ example: 'Ceci est la description du produit' })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: 99.99, description: 'Prix du produit' })
+  @ApiProperty({ example: 99.99 })
   @IsNumber()
+  @Type(() => Number)
   prix: number;
 
-  @ApiPropertyOptional({ example: 100, description: 'Quantité en stock' })
+  @ApiPropertyOptional({ example: 100 })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   stock?: number;
 
-  @ApiProperty({ example: 1, description: 'ID de la catégorie' })
+  @ApiProperty({ example: 1 })
   @IsNumber()
+  @Type(() => Number)
   categorie_id: number;
 
-  @ApiProperty({ example: 1, description: 'ID du statut du produit' })
+  @ApiProperty({ example: 1 })
   @IsNumber()
+  @Type(() => Number)
   statut_id: number;
 
-  @ApiPropertyOptional({
-    example: 1,
-    description: 'ID de la promotion associée (optionnel)',
-  })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   promotion_id?: number;
 
   @ApiPropertyOptional({
+    description: 'Tableau d’URLs (optionnel si vous gérez l’upload)',
     type: [String],
-    description: 'URLs des images associées au produit (optionnel)',
-    example: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
   })
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @IsOptional()
   images?: string[];
 }

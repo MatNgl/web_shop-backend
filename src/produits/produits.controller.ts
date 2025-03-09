@@ -1,3 +1,4 @@
+// src/produits/produits.controller.ts
 import {
   Controller,
   Get,
@@ -9,6 +10,8 @@ import {
   UseGuards,
   Request,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
 import { ProduitsService } from './produits.service';
 import { CreateProduitDto } from './dto/create-produit.dto';
@@ -21,8 +24,11 @@ import {
   ApiParam,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { multerOptions } from 'src/config/multer.config';
 
 @ApiTags('Produits')
 @Controller('produits')
@@ -35,7 +41,7 @@ export class ProduitsController {
   async findAll() {
     return this.produitsService.findAll();
   }
-  // Nouvel endpoint pour la recherche par nom
+
   @Get('search')
   @ApiOperation({
     summary: 'Rechercher des produits par nom',
@@ -63,14 +69,43 @@ export class ProduitsController {
     return this.produitsService.findOne(+id);
   }
 
-  // Endpoints réservés aux administrateurs
+  // Création d'un produit avec upload de plusieurs images
   @Post()
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Créer un nouveau produit (admin uniquement)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Mon Produit' },
+        description: {
+          type: 'string',
+          example: 'Ceci est la description du produit',
+        },
+        prix: { type: 'number', example: 99.99 },
+        stock: { type: 'number', example: 100 },
+        categorie_id: { type: 'number', example: 1 },
+        statut_id: { type: 'number', example: 1 },
+        promotion_id: { type: 'number', example: 1 },
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Produit créé avec succès.' })
-  @ApiBody({ type: CreateProduitDto })
-  async create(@Body() createProduitDto: CreateProduitDto, @Request() req) {
+  async create(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() createProduitDto: CreateProduitDto,
+    @Request() req,
+  ) {
+    // Convertir chaque fichier uploadé en une URL relative, par ex: /uploads/filename.ext
+    const images = files.map((file) => `/uploads/${file.filename}`);
+    createProduitDto.images = images;
     return this.produitsService.create(createProduitDto, req.user);
   }
 
@@ -79,8 +114,8 @@ export class ProduitsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Mettre à jour un produit (admin uniquement)' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
-  @ApiResponse({ status: 200, description: 'Produit mis à jour avec succès.' })
   @ApiBody({ type: UpdateProduitDto })
+  @ApiResponse({ status: 200, description: 'Produit mis à jour avec succès.' })
   async update(
     @Param('id') id: string,
     @Body() updateProduitDto: UpdateProduitDto,
