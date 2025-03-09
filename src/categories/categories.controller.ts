@@ -12,8 +12,8 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+// import { Roles } from '../common/decorators/roles.decorator';
+// import { RolesGuard } from '../common/guards/roles.guard';
 import { ProduitsService } from 'src/produits/produits.service';
 import {
   ApiTags,

@@ -53,17 +53,17 @@ export class PanierService {
       throw new NotFoundException(`Produit #${produitId} introuvable`);
     }
 
-    if (quantite > produit.stock) {
+    if (quantite > (produit.stock ?? 0)) {
       throw new BadRequestException(
-        `Stock insuffisant pour le produit #${produitId}, disponible: ${produit.stock}`,
+        `Stock insuffisant pour le produit #${produitId}, disponible: ${produit.stock ?? 0}`,
       );
     }
 
     let article = panier.articles.find((a) => a.produit.id === produitId);
     if (article) {
-      if (article.quantite + quantite > produit.stock) {
+      if (article.quantite + quantite > (produit.stock ?? 0)) {
         throw new BadRequestException(
-          `Quantité totale dépasse le stock disponible. Disponible: ${produit.stock}`,
+          `Quantité totale dépasse le stock disponible. Disponible: ${produit.stock ?? 0}`,
         );
       }
       article.quantite += quantite;
@@ -93,9 +93,9 @@ export class PanierService {
       );
     }
 
-    if (quantite > article.produit.stock) {
+    if (quantite > (article.produit.stock ?? 0)) {
       throw new BadRequestException(
-        `Stock insuffisant. Disponible: ${article.produit.stock}`,
+        `Stock insuffisant. Disponible: ${article.produit.stock ?? 0}`,
       );
     }
 

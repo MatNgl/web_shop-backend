@@ -20,6 +20,7 @@ import { Commande } from './commandes/entities/commande.entity';
 import { Wishlist } from './wishlist/entities/wishlist.entity';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
+import { ProduitImage } from './produits/entities/produit-image.entity';
 
 @Module({
   imports: [
@@ -37,9 +38,10 @@ import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
       entities: [
         User,
         Produit,
+        ProduitImage,
+        ProduitStatut,
         Category,
         Promotion,
-        ProduitStatut,
         Panier,
         ArticlePanier,
         Commande,

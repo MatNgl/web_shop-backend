@@ -1,5 +1,7 @@
+// create-produit.dto.ts
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, IsNotEmpty } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsNotEmpty, IsArray } from 'class-validator';
 
 export class CreateProduitDto {
   @ApiProperty({ example: 'Mon Produit', description: 'Nom du produit' })
@@ -40,4 +42,14 @@ export class CreateProduitDto {
   @IsOptional()
   @IsNumber()
   promotion_id?: number;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'URLs des images associées au produit (optionnel)',
+    example: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }

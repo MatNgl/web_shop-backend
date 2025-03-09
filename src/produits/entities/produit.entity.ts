@@ -1,50 +1,48 @@
+// src/produits/entities/produit.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany,
-  JoinTable,
+  ManyToOne,
 } from 'typeorm';
+import { ProduitImage } from './produit-image.entity';
 import { ProduitStatut } from './produit-statuts.entity';
 
-@Entity('produit')
+@Entity()
 export class Produit {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ length: 255 })
+  @Column({ nullable: true })
   nom: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description?: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   prix: number;
 
+  @Column({ nullable: true })
+  stock?: number;
+
   @Column()
   categorie_id: number;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @Column({ nullable: true })
+  promotion_id?: number;
+
+  @CreateDateColumn()
   created_at: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updated_at: Date;
 
-  @Column({ type: 'int', nullable: true })
-  promotion_id: number | null;
+  @ManyToOne(() => ProduitStatut, (statut) => statut.produits, { eager: true })
+  statut: ProduitStatut;
 
-  @Column({ type: 'int', default: 0 })
-  stock: number;
-
-  @ManyToMany(() => ProduitStatut, (produitStatut) => produitStatut.produits, {
-    cascade: true,
-  })
-  @JoinTable({
-    name: 'produit_statuts_produit',
-    joinColumn: { name: 'produit_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'statut_id', referencedColumnName: 'id' },
-  })
-  statuts: ProduitStatut[];
+  @OneToMany(() => ProduitImage, (image) => image.produit, { cascade: true })
+  images: ProduitImage[];
 }

@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
@@ -11,49 +12,40 @@ import { UpdateProduitDto } from './dto/update-produit.dto';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { ProduitStatut } from './entities/produit-statuts.entity';
+import { ProduitImage } from './entities/produit-image.entity';
 
 @Injectable()
 export class ProduitsService {
   constructor(
     @InjectRepository(Produit)
     private readonly produitRepository: Repository<Produit>,
+
     @InjectRepository(ProduitStatut)
     private readonly produitStatutRepository: Repository<ProduitStatut>,
+
+    @InjectRepository(ProduitImage)
+    private readonly produitImageRepository: Repository<ProduitImage>,
+
     private readonly promotionsService: PromotionsService,
   ) {}
 
   /**
-   * Fonction utilitaire pour déterminer la liste des statuts à appliquer
-   * en fonction du stock et de la promotion.
-   * - Si le stock est 0, ajoute "En rupture".
-   * - Si le stock > 0, ajoute "Disponible".
-   * - Si une promotion est définie et active (en fonction des dates), ajoute "En promotion".
-   * - Si aucun statut n'est applicable, ajoute "Arrêté".
+   * Détermine le statut à appliquer à un produit en fonction du stock et de la promotion.
+   * Logique :
+   * - Si une promotion active est définie, retourne "En promotion".
+   * - Sinon, si le stock est 0, retourne "En rupture".
+   * - Sinon, retourne "Disponible".
+   * - Si aucun statut n'est trouvé, retourne "Arrêté".
    *
    * @param stock Nombre de produits en stock.
    * @param promotionId ID de la promotion, s'il existe.
-   * @returns Une liste de statuts (ProduitStatut[]) à appliquer.
+   * @returns Le ProduitStatut déterminé.
    */
-  private async determineStatuts(
+  private async determineStatut(
     stock: number,
     promotionId?: number | null,
-  ): Promise<ProduitStatut[]> {
-    const statuts: ProduitStatut[] = [];
-
-    // Statut basé sur le stock : en rupture si stock = 0, sinon disponible.
-    if (stock === 0) {
-      const rupture = await this.produitStatutRepository.findOne({
-        where: { nom: 'En rupture' },
-      });
-      if (rupture) statuts.push(rupture);
-    } else {
-      const disponible = await this.produitStatutRepository.findOne({
-        where: { nom: 'Disponible' },
-      });
-      if (disponible) statuts.push(disponible);
-    }
-
-    // Si une promotion est définie, vérifier sa validité (période active)
+  ): Promise<ProduitStatut> {
+    // Vérifier la promotion active en priorité
     if (promotionId != null) {
       try {
         const promotion = await this.promotionsService.findOne(promotionId);
@@ -65,32 +57,40 @@ export class ProduitsService {
             const enPromo = await this.produitStatutRepository.findOne({
               where: { nom: 'En promotion' },
             });
-            if (enPromo) statuts.push(enPromo);
+            if (enPromo) return enPromo;
           }
         }
       } catch (error) {
-        // Si la promotion n'est pas trouvée, on ignore cette règle
+        // Ignorer l'erreur si la promotion n'est pas trouvée
       }
     }
 
-    // Si aucun statut n'est déterminé, ajouter "Arrêté"
-    if (statuts.length === 0) {
-      const arrete = await this.produitStatutRepository.findOne({
-        where: { nom: 'Arrêté' },
+    // Si le stock est 0, statut "En rupture"
+    if (stock === 0) {
+      const rupture = await this.produitStatutRepository.findOne({
+        where: { nom: 'En rupture' },
       });
-      if (arrete) statuts.push(arrete);
+      if (rupture) return rupture;
     }
-    return statuts;
+
+    // Statut "Disponible" par défaut
+    const disponible = await this.produitStatutRepository.findOne({
+      where: { nom: 'Disponible' },
+    });
+    if (disponible) return disponible;
+
+    // Sinon, statut "Arrêté"
+    const arrete = await this.produitStatutRepository.findOne({
+      where: { nom: 'Arrêté' },
+    });
+    if (arrete) return arrete;
+
+    throw new BadRequestException("Aucun statut n'a pu être déterminé");
   }
 
   /**
-   * Crée un nouveau produit.
-   * Seuls les administrateurs peuvent créer un produit.
-   * Le statut du produit est déterminé automatiquement en fonction du stock et de la promotion.
-   *
-   * @param createProduitDto Données de création du produit.
-   * @param user L'utilisateur effectuant l'opération (doit être admin).
-   * @returns Le produit créé.
+   * Crée un nouveau produit (admin uniquement).
+   * Permet d'inclure un tableau d'URLs d'images via createProduitDto.images.
    */
   async create(
     createProduitDto: CreateProduitDto,
@@ -101,34 +101,46 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    const produit = this.produitRepository.create(createProduitDto);
-    produit.statuts = await this.determineStatuts(
+    // Extraire images du DTO
+    const { images, ...produitData } = createProduitDto;
+    const produit = this.produitRepository.create(produitData);
+    // Déterminer le statut unique à appliquer
+    produit.statut = await this.determineStatut(
       produit.stock ?? 0,
       produit.promotion_id,
     );
-    return await this.produitRepository.save(produit);
+    const savedProduct = await this.produitRepository.save(produit);
+
+    // Si des images sont fournies, les insérer dans la table produit_image
+    if (images && images.length > 0) {
+      for (const url of images) {
+        const produitImage = this.produitImageRepository.create({
+          produit: savedProduct,
+          url,
+        });
+        await this.produitImageRepository.save(produitImage);
+      }
+    }
+
+    return savedProduct;
   }
 
   /**
-   * Récupère tous les produits.
-   * Accessible à tous.
-   *
-   * @returns La liste de tous les produits, incluant leurs statuts.
+   * Récupère tous les produits, incluant leur statut et leurs images.
    */
   async findAll(): Promise<Produit[]> {
-    return await this.produitRepository.find({ relations: ['statuts'] });
+    return await this.produitRepository.find({
+      relations: ['statut', 'images'],
+    });
   }
 
   /**
-   * Récupère un produit par son ID.
-   *
-   * @param id ID du produit à récupérer.
-   * @returns Le produit correspondant.
+   * Récupère un produit par son ID, incluant son statut et ses images.
    */
   async findOne(id: number): Promise<Produit> {
     const produit = await this.produitRepository.findOne({
       where: { id },
-      relations: ['statuts'],
+      relations: ['statut', 'images'],
     });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
@@ -137,14 +149,8 @@ export class ProduitsService {
   }
 
   /**
-   * Met à jour un produit existant.
-   * Seuls les administrateurs peuvent mettre à jour des produits.
-   * Le statut est recalculé après mise à jour.
-   *
-   * @param id ID du produit à mettre à jour.
-   * @param updateProduitDto Données de mise à jour.
-   * @param user L'utilisateur effectuant l'opération.
-   * @returns Le produit mis à jour.
+   * Met à jour un produit existant (admin uniquement).
+   * Si updateProduitDto.images est fourni, les anciennes images sont remplacées par les nouvelles.
    */
   async update(
     id: number,
@@ -156,26 +162,38 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent mettre à jour des produits.',
       );
     }
+    const { images, ...updateData } = updateProduitDto;
     const produit = await this.produitRepository.preload({
       id: id,
-      ...updateProduitDto,
+      ...updateData,
     });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
     }
-    produit.statuts = await this.determineStatuts(
+    produit.statut = await this.determineStatut(
       produit.stock ?? 0,
       produit.promotion_id,
     );
-    return await this.produitRepository.save(produit);
+    const updatedProduct = await this.produitRepository.save(produit);
+
+    if (images) {
+      // Supprimer les anciennes images
+      await this.produitImageRepository.delete({ produit: { id } });
+      // Insérer les nouvelles images
+      for (const url of images) {
+        const produitImage = this.produitImageRepository.create({
+          produit: updatedProduct,
+          url,
+        });
+        await this.produitImageRepository.save(produitImage);
+      }
+    }
+
+    return updatedProduct;
   }
 
   /**
-   * Supprime un produit.
-   * Seuls les administrateurs peuvent supprimer un produit.
-   *
-   * @param id ID du produit à supprimer.
-   * @param user L'utilisateur effectuant l'opération.
+   * Supprime un produit (admin uniquement).
    */
   async remove(id: number, user: UserPayload): Promise<void> {
     if (user.role !== 'admin') {
@@ -190,14 +208,7 @@ export class ProduitsService {
   }
 
   /**
-   * Met à jour le stock d'un produit.
-   * Seuls les administrateurs peuvent modifier le stock.
-   * Le statut est recalculé après modification du stock.
-   *
-   * @param id ID du produit.
-   * @param stock Nouvelle quantité en stock.
-   * @param user L'utilisateur effectuant l'opération.
-   * @returns Le produit mis à jour.
+   * Met à jour le stock d'un produit (admin uniquement).
    */
   async updateStock(
     id: number,
@@ -211,22 +222,15 @@ export class ProduitsService {
     }
     const produit = await this.findOne(id);
     produit.stock = stock;
-    produit.statuts = await this.determineStatuts(
-      produit.stock,
+    produit.statut = await this.determineStatut(
+      produit.stock ?? 0,
       produit.promotion_id,
     );
     return await this.produitRepository.save(produit);
   }
 
   /**
-   * Applique ou retire une promotion à un produit.
-   * Seuls les administrateurs peuvent appliquer ou retirer une promotion.
-   * Le champ promotion_id est mis à jour, et les statuts sont recalculés.
-   *
-   * @param id ID du produit.
-   * @param promotionId ID de la promotion à appliquer, ou null pour retirer.
-   * @param user L'utilisateur effectuant l'opération.
-   * @returns Le produit mis à jour.
+   * Applique ou retire une promotion à un produit (admin uniquement).
    */
   async applyPromotion(
     id: number,
@@ -239,9 +243,10 @@ export class ProduitsService {
       );
     }
     const produit = await this.findOne(id);
-    produit.promotion_id = promotionId;
-    produit.statuts = await this.determineStatuts(
-      produit.stock,
+    // Si promotionId est null, on le supprime (stocke undefined)
+    produit.promotion_id = promotionId === null ? undefined : promotionId;
+    produit.statut = await this.determineStatut(
+      produit.stock ?? 0,
       produit.promotion_id,
     );
     return await this.produitRepository.save(produit);
@@ -249,9 +254,6 @@ export class ProduitsService {
 
   /**
    * Recherche des produits par nom (insensible à la casse).
-   *
-   * @param nom Terme à rechercher dans le nom du produit.
-   * @returns Une liste de produits correspondants.
    */
   async searchByName(nom: string): Promise<Produit[]> {
     try {
@@ -260,23 +262,21 @@ export class ProduitsService {
       }
       return await this.produitRepository.find({
         where: { nom: ILike(`%${nom}%`) },
-        relations: ['statuts'],
+        relations: ['statut', 'images'],
       });
     } catch (error) {
       console.error('Erreur lors de la recherche par nom:', error);
       throw error;
     }
   }
+
   /**
    * Récupère tous les produits appartenant à une catégorie donnée.
-   *
-   * @param categoryId ID de la catégorie.
-   * @returns Une liste de produits associés à la catégorie.
    */
   async findByCategory(categoryId: number): Promise<Produit[]> {
     return await this.produitRepository.find({
       where: { categorie_id: categoryId },
-      relations: ['statuts'],
+      relations: ['statut', 'images'],
     });
   }
 }

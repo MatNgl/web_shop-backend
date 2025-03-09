@@ -9,6 +9,6 @@ export class ProduitStatut {
   @Column({ unique: true })
   nom: string;
 
-  @ManyToMany(() => Produit, (produit) => produit.statuts)
+  @ManyToMany(() => Produit, (produit) => produit.statut)
   produits: Produit[];
 }
