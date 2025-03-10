@@ -52,6 +52,12 @@ export class PanierService {
     if (!produit) {
       throw new NotFoundException(`Produit #${produitId} introuvable`);
     }
+    // Vérifier que le produit est actif
+    if (produit.etat !== 'actif') {
+      throw new BadRequestException(
+        `Produit #${produitId} n'est pas disponible`,
+      );
+    }
 
     if (quantite > (produit.stock ?? 0)) {
       throw new BadRequestException(
@@ -126,7 +132,6 @@ export class PanierService {
     await this.articlePanierRepository.delete({ panier: { id: panier.id } });
   }
 
-  // Méthode pour valider le panier et créer une commande
   async validatePanier(
     user: UserPayload,
     shippingAddress: string,

@@ -14,6 +14,7 @@ import { ProduitImage } from './produits/entities/produit-image.entity';
 import { ProduitStatut } from './produits/entities/produit-statuts.entity';
 import { CategoriesModule } from './categories/categories.module';
 import { Category } from './categories/entities/category.entity';
+import { SousCategorie } from './categories/entities/sous-categorie.entity';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Promotion } from './promotions/entities/promotion.entity';
 import { PanierModule } from './panier/panier.module';
@@ -25,6 +26,8 @@ import { Wishlist } from './wishlist/entities/wishlist.entity';
 import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
+import { DessinNumerique } from './produits/entities/dessin-numerique.entity';
+import { Sticker } from './produits/entities/sticker.entity';
 
 @Module({
   imports: [
@@ -49,12 +52,15 @@ import { AppController } from './app.controller';
         ProduitImage,
         ProduitStatut,
         Category,
+        SousCategorie,
         Promotion,
         Panier,
         ArticlePanier,
         Commande,
         Wishlist,
         WishlistItem,
+        DessinNumerique,
+        Sticker,
       ],
       synchronize: true,
     }),

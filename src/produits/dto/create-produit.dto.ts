@@ -54,4 +54,9 @@ export class CreateProduitDto {
   @IsString({ each: true })
   @IsOptional()
   images?: string[];
+
+  @ApiPropertyOptional({ example: 'actif', description: 'Etat du produit' })
+  @IsOptional()
+  @IsString()
+  etat?: string;
 }

@@ -1,5 +1,3 @@
-// update-produit.dto.ts
-
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, IsArray } from 'class-validator';
 
@@ -39,7 +37,6 @@ export class UpdateProduitDto {
   @IsOptional()
   promotion_id?: number;
 
-  // --- NOUVEAU CHAMP POUR LES IMAGES ---
   @ApiPropertyOptional({
     type: [String],
     description: 'Mise à jour des URLs des images du produit',
@@ -49,4 +46,9 @@ export class UpdateProduitDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+
+  @ApiPropertyOptional({ example: 'actif', description: 'Etat du produit' })
+  @IsOptional()
+  @IsString()
+  etat?: string;
 }

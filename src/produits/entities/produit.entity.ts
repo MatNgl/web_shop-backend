@@ -1,4 +1,3 @@
-// src/produits/entities/produit.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,12 +6,14 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  TableInheritance,
 } from 'typeorm';
 import { ProduitImage } from './produit-image.entity';
 import { ProduitStatut } from './produit-statuts.entity';
 
 @Entity()
-export class Produit {
+@TableInheritance({ column: { type: 'varchar', name: 'type' } })
+export abstract class Produit {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -33,6 +34,12 @@ export class Produit {
 
   @Column({ nullable: true })
   promotion_id?: number;
+
+  @Column({ default: 'actif' })
+  etat: string;
+
+  @Column({ default: 'dessin numerique' })
+  type: string;
 
   @CreateDateColumn()
   created_at: Date;

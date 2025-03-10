@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+// src/panier/panier.controller.ts
 import {
   Controller,
   Get,
@@ -170,6 +171,21 @@ export class PanierController {
     return this.panierService.removeArticle(req.user, articleId);
   }
 
+  // Nouveau endpoint pour vider le panier
+  @Delete('empty')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Vider le panier' })
+  @ApiResponse({
+    status: 200,
+    description: 'Panier vidé avec succès.',
+    schema: { example: { message: 'Panier vidé' } },
+  })
+  async emptyPanier(@Request() req) {
+    await this.panierService.viderPanier(req.user);
+    return { message: 'Panier vidé' };
+  }
+
   @Post('validate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -193,14 +209,12 @@ export class PanierController {
     @Request() req,
     @Body() validatePanierDto: ValidatePanierDto,
   ) {
-    // Vérifier que le panier contient au moins un article
     const panier = await this.panierService.getPanier(req.user);
     if (!panier.articles || panier.articles.length === 0) {
       throw new BadRequestException(
         'Votre panier est vide, vous ne pouvez pas passer commande.',
       );
     }
-
     return await this.panierService.validatePanier(
       req.user,
       validatePanierDto.shippingAddress,

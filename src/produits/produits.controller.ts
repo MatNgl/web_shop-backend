@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 // src/produits/produits.controller.ts
 import {
   Controller,
@@ -12,10 +14,13 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ProduitsService } from './produits.service';
 import { CreateProduitDto } from './dto/create-produit.dto';
 import { UpdateProduitDto } from './dto/update-produit.dto';
+import { CreateDessinNumeriqueDto } from './dto/create-dessin-numerique.dto';
+import { CreateStickerDto } from './dto/create-sticker.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -65,11 +70,11 @@ export class ProduitsController {
   @ApiOperation({ summary: 'Récupérer un produit par son ID' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
   @ApiResponse({ status: 200, description: 'Le produit correspondant à l’ID.' })
-  async findOne(@Param('id') id: string) {
-    return this.produitsService.findOne(+id);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.produitsService.findOne(id);
   }
 
-  // Création d'un produit avec upload de plusieurs images
+  // Création d'un produit standard avec upload d'images
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -90,6 +95,7 @@ export class ProduitsController {
         categorie_id: { type: 'number', example: 1 },
         statut_id: { type: 'number', example: 1 },
         promotion_id: { type: 'number', example: 1 },
+        // Éventuellement 'etat' si précisé dans le DTO
         files: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
@@ -103,10 +109,109 @@ export class ProduitsController {
     @Body() createProduitDto: CreateProduitDto,
     @Request() req,
   ) {
-    // Convertir chaque fichier uploadé en une URL relative, par ex: /uploads/filename.ext
     const images = files.map((file) => `/uploads/${file.filename}`);
     createProduitDto.images = images;
     return this.produitsService.create(createProduitDto, req.user);
+  }
+
+  // Création d'un dessin numérique
+  @Post('dessin-numerique')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Créer un dessin numérique (admin uniquement)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Dessin Digital' },
+        description: {
+          type: 'string',
+          example: 'Description du dessin numérique',
+        },
+        prix: { type: 'number', example: 120.5 },
+        stock: { type: 'number', example: 50 },
+        categorie_id: { type: 'number', example: 2 },
+        statut_id: { type: 'number', example: 1 },
+        promotion_id: { type: 'number', example: 1 },
+        resolution: { type: 'string', example: '1920x1080' },
+        dimensions: { type: 'string', example: 'A4' },
+        // Optionnellement 'etat'
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+      required: ['nom', 'prix', 'categorie_id', 'resolution', 'dimensions'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Dessin numérique créé avec succès.',
+  })
+  async createDessinNumerique(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() createDessinDto: CreateDessinNumeriqueDto,
+    @Request() req,
+  ) {
+    const images = files.map((file) => `/uploads/${file.filename}`);
+    createDessinDto.images = images;
+    return this.produitsService.createDessinNumerique(
+      createDessinDto,
+      req.user,
+    );
+  }
+
+  // Création d'un sticker
+  @Post('sticker')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Créer un sticker (admin uniquement)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Sticker Cool' },
+        description: {
+          type: 'string',
+          example: 'Description du sticker',
+        },
+        prix: { type: 'number', example: 15.99 },
+        stock: { type: 'number', example: 200 },
+        categorie_id: { type: 'number', example: 3 },
+        statut_id: { type: 'number', example: 1 },
+        promotion_id: { type: 'number', example: 1 },
+        format: { type: 'string', example: 'rond' },
+        dimensions: { type: 'string', example: '10x10cm' },
+        materiau: { type: 'string', example: 'vinyle' },
+        // Optionnellement 'etat'
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+      required: [
+        'nom',
+        'prix',
+        'categorie_id',
+        'format',
+        'dimensions',
+        'materiau',
+      ],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Sticker créé avec succès.' })
+  async createSticker(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() createStickerDto: CreateStickerDto,
+    @Request() req,
+  ) {
+    const images = files.map((file) => `/uploads/${file.filename}`);
+    createStickerDto.images = images;
+    return this.produitsService.createSticker(createStickerDto, req.user);
   }
 
   @Patch(':id')

@@ -13,6 +13,12 @@ import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { ProduitStatut } from './entities/produit-statuts.entity';
 import { ProduitImage } from './entities/produit-image.entity';
+import { CreateDessinNumeriqueDto } from './dto/create-dessin-numerique.dto';
+import { CreateStickerDto } from './dto/create-sticker.dto';
+import { DessinNumerique } from './entities/dessin-numerique.entity';
+import { Sticker } from './entities/sticker.entity';
+import { ArticlePanier } from 'src/panier/entities/article-panier.entity';
+import { WishlistItem } from 'src/wishlist/entities/wishlist-item.entity';
 
 @Injectable()
 export class ProduitsService {
@@ -26,21 +32,15 @@ export class ProduitsService {
     @InjectRepository(ProduitImage)
     private readonly produitImageRepository: Repository<ProduitImage>,
 
+    @InjectRepository(DessinNumerique)
+    private readonly dessinRepository: Repository<DessinNumerique>,
+
+    @InjectRepository(Sticker)
+    private readonly stickerRepository: Repository<Sticker>,
+
     private readonly promotionsService: PromotionsService,
   ) {}
 
-  /**
-   * Détermine le statut à appliquer à un produit en fonction du stock et de la promotion.
-   * Logique :
-   * - Si une promotion active est définie, retourne "En promotion".
-   * - Sinon, si le stock est 0, retourne "En rupture".
-   * - Sinon, retourne "Disponible".
-   * - Si aucun statut n'est trouvé, retourne "Arrêté".
-   *
-   * @param stock Nombre de produits en stock.
-   * @param promotionId ID de la promotion, s'il existe.
-   * @returns Le ProduitStatut déterminé.
-   */
   private async determineStatut(
     stock: number,
     promotionId?: number | null,
@@ -88,10 +88,6 @@ export class ProduitsService {
     throw new BadRequestException("Aucun statut n'a pu être déterminé");
   }
 
-  /**
-   * Crée un nouveau produit (admin uniquement).
-   * Permet d'inclure un tableau d'URLs d'images via createProduitDto.images.
-   */
   async create(
     createProduitDto: CreateProduitDto,
     user: UserPayload,
@@ -101,8 +97,9 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    const { images, ...produitData } = createProduitDto;
+    const { images, etat, ...produitData } = createProduitDto;
     const produit = this.produitRepository.create(produitData);
+    produit.etat = etat ?? 'actif';
     produit.statut = await this.determineStatut(
       produit.stock ?? 0,
       produit.promotion_id,
@@ -121,18 +118,89 @@ export class ProduitsService {
     return savedProduct;
   }
 
-  /**
-   * Récupère tous les produits, incluant leur statut et leurs images.
-   */
+  async createDessinNumerique(
+    createDessinDto: CreateDessinNumeriqueDto,
+    user: UserPayload,
+  ): Promise<Produit> {
+    if (user.role !== 'admin') {
+      throw new UnauthorizedException(
+        'Seuls les administrateurs peuvent créer des produits.',
+      );
+    }
+    const { images, resolution, dimensions, etat, ...produitData } =
+      createDessinDto;
+    const produit = this.produitRepository.create(produitData);
+    produit.etat = etat ?? 'actif';
+    produit.statut = await this.determineStatut(
+      produit.stock ?? 0,
+      produit.promotion_id,
+    );
+    const savedProduct = await this.produitRepository.save(produit);
+
+    const dessin = this.dessinRepository.create({
+      produit_id: savedProduct.id,
+      resolution,
+      dimensions,
+    });
+    await this.dessinRepository.save(dessin);
+
+    if (images && images.length > 0) {
+      for (const url of images) {
+        const produitImage = this.produitImageRepository.create({
+          produit: savedProduct,
+          url,
+        });
+        await this.produitImageRepository.save(produitImage);
+      }
+    }
+    return savedProduct;
+  }
+
+  async createSticker(
+    createStickerDto: CreateStickerDto,
+    user: UserPayload,
+  ): Promise<Produit> {
+    if (user.role !== 'admin') {
+      throw new UnauthorizedException(
+        'Seuls les administrateurs peuvent créer des produits.',
+      );
+    }
+    const { images, format, dimensions, materiau, etat, ...produitData } =
+      createStickerDto;
+    const produit = this.produitRepository.create(produitData);
+    produit.etat = etat ?? 'actif';
+    produit.statut = await this.determineStatut(
+      produit.stock ?? 0,
+      produit.promotion_id,
+    );
+    const savedProduct = await this.produitRepository.save(produit);
+
+    const sticker = this.stickerRepository.create({
+      produit_id: savedProduct.id,
+      format,
+      dimensions,
+      materiau,
+    });
+    await this.stickerRepository.save(sticker);
+
+    if (images && images.length > 0) {
+      for (const url of images) {
+        const produitImage = this.produitImageRepository.create({
+          produit: savedProduct,
+          url,
+        });
+        await this.produitImageRepository.save(produitImage);
+      }
+    }
+    return savedProduct;
+  }
+
   async findAll(): Promise<Produit[]> {
     return await this.produitRepository.find({
       relations: ['statut', 'images'],
     });
   }
 
-  /**
-   * Récupère un produit par son ID, incluant son statut et ses images.
-   */
   async findOne(id: number): Promise<Produit> {
     const produit = await this.produitRepository.findOne({
       where: { id },
@@ -144,10 +212,6 @@ export class ProduitsService {
     return produit;
   }
 
-  /**
-   * Met à jour un produit existant (admin uniquement).
-   * Si updateProduitDto.images est fourni, les anciennes images sont remplacées par les nouvelles.
-   */
   async update(
     id: number,
     updateProduitDto: UpdateProduitDto,
@@ -158,13 +222,16 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent mettre à jour des produits.',
       );
     }
-    const { images, ...updateData } = updateProduitDto;
+    const { images, etat, ...updateData } = updateProduitDto;
     const produit = await this.produitRepository.preload({
       id,
       ...updateData,
     });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
+    }
+    if (etat) {
+      produit.etat = etat;
     }
     produit.statut = await this.determineStatut(
       produit.stock ?? 0,
@@ -173,9 +240,7 @@ export class ProduitsService {
     const updatedProduct = await this.produitRepository.save(produit);
 
     if (images) {
-      // Supprimer les anciennes images
       await this.produitImageRepository.delete({ produit: { id } });
-      // Insérer les nouvelles images
       for (const url of images) {
         const produitImage = this.produitImageRepository.create({
           produit: updatedProduct,
@@ -187,24 +252,30 @@ export class ProduitsService {
     return updatedProduct;
   }
 
-  /**
-   * Supprime un produit (admin uniquement).
-   */
   async remove(id: number, user: UserPayload): Promise<void> {
     if (user.role !== 'admin') {
       throw new UnauthorizedException(
         'Seuls les administrateurs peuvent supprimer des produits.',
       );
     }
+
+    // Supprimer les articles de wishlist liés à ce produit
+    await this.produitRepository.manager
+      .getRepository(WishlistItem)
+      .delete({ produit: { id } });
+
+    // Supprimer les articles de panier liés à ce produit
+    await this.produitRepository.manager
+      .getRepository(ArticlePanier)
+      .delete({ produit: { id } });
+
+    // Supprimer le produit
     const result = await this.produitRepository.delete(id);
     if (result.affected === 0) {
       throw new NotFoundException(`Produit #${id} introuvable`);
     }
   }
 
-  /**
-   * Met à jour le stock d'un produit (admin uniquement).
-   */
   async updateStock(
     id: number,
     stock: number,
@@ -224,9 +295,6 @@ export class ProduitsService {
     return await this.produitRepository.save(produit);
   }
 
-  /**
-   * Applique ou retire une promotion à un produit (admin uniquement).
-   */
   async applyPromotion(
     id: number,
     promotionId: number | null,
@@ -238,7 +306,6 @@ export class ProduitsService {
       );
     }
     const produit = await this.findOne(id);
-    // Si promotionId est null, on le supprime (stocke undefined)
     produit.promotion_id = promotionId === null ? undefined : promotionId;
     produit.statut = await this.determineStatut(
       produit.stock ?? 0,
@@ -247,27 +314,16 @@ export class ProduitsService {
     return await this.produitRepository.save(produit);
   }
 
-  /**
-   * Recherche des produits par nom (insensible à la casse).
-   */
   async searchByName(nom: string): Promise<Produit[]> {
-    try {
-      if (!nom) {
-        throw new Error("Le paramètre 'nom' est requis.");
-      }
-      return await this.produitRepository.find({
-        where: { nom: ILike(`%${nom}%`) },
-        relations: ['statut', 'images'],
-      });
-    } catch (error) {
-      console.error('Erreur lors de la recherche par nom:', error);
-      throw error;
+    if (!nom) {
+      throw new Error("Le paramètre 'nom' est requis.");
     }
+    return await this.produitRepository.find({
+      where: { nom: ILike(`%${nom}%`) },
+      relations: ['statut', 'images'],
+    });
   }
 
-  /**
-   * Récupère tous les produits appartenant à une catégorie donnée.
-   */
   async findByCategory(categoryId: number): Promise<Produit[]> {
     return await this.produitRepository.find({
       where: { categorie_id: categoryId },
