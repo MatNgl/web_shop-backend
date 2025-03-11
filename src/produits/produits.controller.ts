@@ -40,6 +40,7 @@ import { multerOptions } from 'src/config/multer.config';
 export class ProduitsController {
   constructor(private readonly produitsService: ProduitsService) {}
 
+  // Endpoint pour récupérer la liste de tous les produits
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les produits' })
   @ApiResponse({ status: 200, description: 'Liste de produits.' })
@@ -47,6 +48,7 @@ export class ProduitsController {
     return this.produitsService.findAll();
   }
 
+  // Endpoint pour rechercher des produits par nom via un paramètre query
   @Get('search')
   @ApiOperation({
     summary: 'Rechercher des produits par nom',
@@ -66,6 +68,16 @@ export class ProduitsController {
     return this.produitsService.searchByName(nom);
   }
 
+  // Endpoint pour récupérer les nouveautés : produits créés il y a moins de 7 jours
+  @Get('new')
+  @ApiOperation({
+    summary: 'Obtenir les nouveautés (produits créés il y a moins de 7 jours)',
+  })
+  async getNewProducts() {
+    return this.produitsService.findNewProducts();
+  }
+
+  // Endpoint pour récupérer un produit par son ID (uniquement numérique)
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un produit par son ID' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
@@ -74,7 +86,7 @@ export class ProduitsController {
     return this.produitsService.findOne(id);
   }
 
-  // Création d'un produit standard avec upload d'images
+  // Endpoint pour créer un nouveau produit standard (admin uniquement) avec upload d'images
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -114,7 +126,7 @@ export class ProduitsController {
     return this.produitsService.create(createProduitDto, req.user);
   }
 
-  // Création d'un dessin numérique
+  // Endpoint pour créer un dessin numérique (admin uniquement) avec upload d'images
   @Post('dessin-numerique')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -163,7 +175,7 @@ export class ProduitsController {
     );
   }
 
-  // Création d'un sticker
+  // Endpoint pour créer un sticker (admin uniquement) avec upload d'images
   @Post('sticker')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -214,6 +226,7 @@ export class ProduitsController {
     return this.produitsService.createSticker(createStickerDto, req.user);
   }
 
+  // Endpoint pour mettre à jour un produit existant (admin uniquement)
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -229,6 +242,7 @@ export class ProduitsController {
     return this.produitsService.update(+id, updateProduitDto, req.user);
   }
 
+  // Endpoint pour supprimer un produit (admin uniquement)
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -240,6 +254,7 @@ export class ProduitsController {
     return { message: `Produit #${id} supprimé` };
   }
 
+  // Endpoint pour mettre à jour le stock d’un produit (admin uniquement)
   @Patch(':id/stock')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -266,6 +281,7 @@ export class ProduitsController {
     return await this.produitsService.updateStock(+id, stock, req.user);
   }
 
+  // Endpoint pour appliquer ou retirer une promotion sur un produit (admin uniquement)
   @Patch(':id/promotion')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -300,5 +316,19 @@ export class ProduitsController {
       promotionId,
       req.user,
     );
+  }
+
+  // Endpoint pour obtenir des recommandations de produits basées sur la catégorie du produit de référence
+  @Get(':id/recommendations')
+  @ApiOperation({
+    summary: 'Obtenir des recommandations de produits basées sur la catégorie',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'number',
+    description: 'ID du produit de référence',
+  })
+  async getRecommendations(@Param('id', ParseIntPipe) id: number) {
+    return this.produitsService.findRecommendedProducts(id);
   }
 }

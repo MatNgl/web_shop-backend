@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, Not } from 'typeorm';
 import { Produit } from './entities/produit.entity';
 import { CreateProduitDto } from './dto/create-produit.dto';
 import { UpdateProduitDto } from './dto/update-produit.dto';
@@ -329,5 +329,48 @@ export class ProduitsService {
       where: { categorie_id: categoryId },
       relations: ['statut', 'images'],
     });
+  }
+
+  async findRecommendedProducts(productId: number): Promise<Produit[]> {
+    // Récupérer le produit de référence pour connaître sa catégorie
+    const product = await this.findOne(productId);
+    if (!product) {
+      throw new NotFoundException(`Produit #${productId} introuvable`);
+    }
+    // Récupérer les produits de la même catégorie (excluant le produit courant)
+    const sameCategoryProducts = await this.produitRepository.find({
+      where: {
+        categorie_id: product.categorie_id,
+        id: Not(productId),
+      },
+      relations: ['statut', 'images'],
+    });
+    // Mélanger aléatoirement les produits de la même catégorie
+    const shuffledSameCategory = sameCategoryProducts.sort(
+      () => Math.random() - 0.5,
+    );
+
+    // Récupérer les produits appartenant à d'autres catégories
+    const otherProducts = await this.produitRepository.find({
+      where: {
+        categorie_id: Not(product.categorie_id),
+      },
+      relations: ['statut', 'images'],
+    });
+
+    // Concaténer : mêmes catégories (en ordre aléatoire) puis les autres produits
+    return [...shuffledSameCategory, ...otherProducts];
+  }
+
+  async findNewProducts(): Promise<Produit[]> {
+    // Calculer la date correspondant à 7 jours avant aujourd'hui
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    // Utiliser le query builder pour sélectionner les produits créés il y a moins de 7 jours
+    return await this.produitRepository
+      .createQueryBuilder('produit')
+      .leftJoinAndSelect('produit.statut', 'statut')
+      .leftJoinAndSelect('produit.images', 'images')
+      .where('produit.created_at >= :sevenDaysAgo', { sevenDaysAgo })
+      .getMany();
   }
 }
