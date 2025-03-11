@@ -32,6 +32,7 @@ export class CategoriesController {
     private readonly produitsService: ProduitsService,
   ) {}
 
+  // Récupérer toutes les catégories
   @Get()
   @ApiOperation({ summary: 'Récupérer toutes les catégories' })
   @ApiResponse({ status: 200, description: 'Liste des catégories.' })
@@ -39,6 +40,7 @@ export class CategoriesController {
     return this.categoriesService.findAll();
   }
 
+  // Récupérer une catégorie par son ID
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer une catégorie par son ID' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID de la catégorie' })
@@ -50,26 +52,48 @@ export class CategoriesController {
     return this.categoriesService.findOne(+id);
   }
 
+  // Créer une nouvelle catégorie (admin uniquement) en intégrant l'état
   @UseGuards(JwtAuthGuard)
   @Post()
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Créer une nouvelle catégorie' })
+  @ApiOperation({ summary: 'Créer une nouvelle catégorie (admin uniquement)' })
   @ApiResponse({ status: 201, description: 'Catégorie créée avec succès.' })
-  @ApiBody({ type: CreateCategoryDto })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Catégorie A' },
+        description: { type: 'string', example: 'Description de la catégorie' },
+        etat: { type: 'boolean', example: true },
+      },
+      required: ['nom', 'etat'],
+    },
+  })
   async create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
 
+  // Mettre à jour une catégorie (admin uniquement) en intégrant l'état
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Mettre à jour une catégorie' })
+  @ApiOperation({ summary: 'Mettre à jour une catégorie (admin uniquement)' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID de la catégorie' })
   @ApiResponse({
     status: 200,
     description: 'Catégorie mise à jour avec succès.',
   })
-  @ApiBody({ type: UpdateCategoryDto })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Catégorie Modifiée' },
+        description: { type: 'string', example: 'Nouvelle description' },
+        etat: { type: 'boolean', example: true },
+      },
+      required: ['etat'],
+    },
+  })
   async update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -77,10 +101,11 @@ export class CategoriesController {
     return this.categoriesService.update(+id, updateCategoryDto);
   }
 
+  // Supprimer une catégorie (admin uniquement)
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Supprimer une catégorie' })
+  @ApiOperation({ summary: 'Supprimer une catégorie (admin uniquement)' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID de la catégorie' })
   @ApiResponse({ status: 200, description: 'Catégorie supprimée avec succès.' })
   async remove(@Param('id') id: string) {
@@ -88,8 +113,7 @@ export class CategoriesController {
     return { message: `Catégorie #${id} supprimée` };
   }
 
-  // Endpoints pour la gestion des sous-catégories
-
+  // Récupérer les sous-catégories associées à une catégorie
   @Get(':id/subcategories')
   @ApiOperation({
     summary: 'Récupérer les sous-catégories associées à une catégorie',
@@ -103,6 +127,7 @@ export class CategoriesController {
     return this.categoriesService.getSubCategories(+id);
   }
 
+  // Créer une sous-catégorie pour une catégorie donnée (admin uniquement)
   @UseGuards(JwtAuthGuard)
   @Post(':id/subcategories')
   @ApiBearerAuth('access-token')
@@ -130,6 +155,7 @@ export class CategoriesController {
     );
   }
 
+  // Mettre à jour une sous-catégorie (admin uniquement)
   @UseGuards(JwtAuthGuard)
   @Patch('subcategories/:subId')
   @ApiBearerAuth('access-token')
@@ -156,12 +182,11 @@ export class CategoriesController {
     );
   }
 
+  // Supprimer une sous-catégorie (admin uniquement)
   @UseGuards(JwtAuthGuard)
   @Delete('subcategories/:subId')
   @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Supprimer une sous-catégorie (admin uniquement)',
-  })
+  @ApiOperation({ summary: 'Supprimer une sous-catégorie (admin uniquement)' })
   @ApiParam({
     name: 'subId',
     type: 'number',
@@ -176,6 +201,7 @@ export class CategoriesController {
     return { message: `Sous-catégorie #${subId} supprimée` };
   }
 
+  // Récupérer les produits associés à une catégorie
   @Get(':id/products')
   @ApiOperation({
     summary: 'Récupérer les produits associés à une catégorie',

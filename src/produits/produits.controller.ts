@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-// src/produits/produits.controller.ts
 import {
   Controller,
   Get,
@@ -40,7 +39,7 @@ import { multerOptions } from 'src/config/multer.config';
 export class ProduitsController {
   constructor(private readonly produitsService: ProduitsService) {}
 
-  // Endpoint pour récupérer la liste de tous les produits
+  // Récupérer tous les produits
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les produits' })
   @ApiResponse({ status: 200, description: 'Liste de produits.' })
@@ -48,7 +47,7 @@ export class ProduitsController {
     return this.produitsService.findAll();
   }
 
-  // Endpoint pour rechercher des produits par nom via un paramètre query
+  // Rechercher des produits par nom
   @Get('search')
   @ApiOperation({
     summary: 'Rechercher des produits par nom',
@@ -68,7 +67,7 @@ export class ProduitsController {
     return this.produitsService.searchByName(nom);
   }
 
-  // Endpoint pour récupérer les nouveautés : produits créés il y a moins de 7 jours
+  // Obtenir les nouveautés (produits créés il y a moins de 7 jours)
   @Get('new')
   @ApiOperation({
     summary: 'Obtenir les nouveautés (produits créés il y a moins de 7 jours)',
@@ -77,7 +76,7 @@ export class ProduitsController {
     return this.produitsService.findNewProducts();
   }
 
-  // Endpoint pour récupérer un produit par son ID (uniquement numérique)
+  // Récupérer un produit par son ID
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer un produit par son ID' })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
@@ -86,7 +85,7 @@ export class ProduitsController {
     return this.produitsService.findOne(id);
   }
 
-  // Endpoint pour créer un nouveau produit standard (admin uniquement) avec upload d'images
+  // Créer un nouveau produit (admin uniquement) avec upload d'images
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -107,12 +106,10 @@ export class ProduitsController {
         categorie_id: { type: 'number', example: 1 },
         statut_id: { type: 'number', example: 1 },
         promotion_id: { type: 'number', example: 1 },
-        // Éventuellement 'etat' si précisé dans le DTO
-        files: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-        },
+        etat: { type: 'boolean', example: true },
+        files: { type: 'array', items: { type: 'string', format: 'binary' } },
       },
+      required: ['nom', 'prix', 'categorie_id', 'etat'],
     },
   })
   @ApiResponse({ status: 201, description: 'Produit créé avec succès.' })
@@ -126,7 +123,7 @@ export class ProduitsController {
     return this.produitsService.create(createProduitDto, req.user);
   }
 
-  // Endpoint pour créer un dessin numérique (admin uniquement) avec upload d'images
+  // Créer un dessin numérique (admin uniquement) avec upload d'images
   @Post('dessin-numerique')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -149,13 +146,17 @@ export class ProduitsController {
         promotion_id: { type: 'number', example: 1 },
         resolution: { type: 'string', example: '1920x1080' },
         dimensions: { type: 'string', example: 'A4' },
-        // Optionnellement 'etat'
-        files: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-        },
+        etat: { type: 'boolean', example: true },
+        files: { type: 'array', items: { type: 'string', format: 'binary' } },
       },
-      required: ['nom', 'prix', 'categorie_id', 'resolution', 'dimensions'],
+      required: [
+        'nom',
+        'prix',
+        'categorie_id',
+        'resolution',
+        'dimensions',
+        'etat',
+      ],
     },
   })
   @ApiResponse({
@@ -175,7 +176,7 @@ export class ProduitsController {
     );
   }
 
-  // Endpoint pour créer un sticker (admin uniquement) avec upload d'images
+  // Créer un sticker (admin uniquement) avec upload d'images
   @Post('sticker')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
@@ -187,10 +188,7 @@ export class ProduitsController {
       type: 'object',
       properties: {
         nom: { type: 'string', example: 'Sticker Cool' },
-        description: {
-          type: 'string',
-          example: 'Description du sticker',
-        },
+        description: { type: 'string', example: 'Description du sticker' },
         prix: { type: 'number', example: 15.99 },
         stock: { type: 'number', example: 200 },
         categorie_id: { type: 'number', example: 3 },
@@ -199,11 +197,8 @@ export class ProduitsController {
         format: { type: 'string', example: 'rond' },
         dimensions: { type: 'string', example: '10x10cm' },
         materiau: { type: 'string', example: 'vinyle' },
-        // Optionnellement 'etat'
-        files: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-        },
+        etat: { type: 'boolean', example: true },
+        files: { type: 'array', items: { type: 'string', format: 'binary' } },
       },
       required: [
         'nom',
@@ -212,6 +207,7 @@ export class ProduitsController {
         'format',
         'dimensions',
         'materiau',
+        'etat',
       ],
     },
   })
@@ -226,7 +222,7 @@ export class ProduitsController {
     return this.produitsService.createSticker(createStickerDto, req.user);
   }
 
-  // Endpoint pour mettre à jour un produit existant (admin uniquement)
+  // Mettre à jour un produit existant (admin uniquement)
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -242,7 +238,7 @@ export class ProduitsController {
     return this.produitsService.update(+id, updateProduitDto, req.user);
   }
 
-  // Endpoint pour supprimer un produit (admin uniquement)
+  // Supprimer un produit (admin uniquement)
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -254,7 +250,7 @@ export class ProduitsController {
     return { message: `Produit #${id} supprimé` };
   }
 
-  // Endpoint pour mettre à jour le stock d’un produit (admin uniquement)
+  // Mettre à jour le stock d’un produit (admin uniquement)
   @Patch(':id/stock')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -281,7 +277,7 @@ export class ProduitsController {
     return await this.produitsService.updateStock(+id, stock, req.user);
   }
 
-  // Endpoint pour appliquer ou retirer une promotion sur un produit (admin uniquement)
+  // Appliquer ou retirer une promotion sur un produit (admin uniquement)
   @Patch(':id/promotion')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -318,7 +314,7 @@ export class ProduitsController {
     );
   }
 
-  // Endpoint pour obtenir des recommandations de produits basées sur la catégorie du produit de référence
+  // Obtenir des recommandations de produits basées sur la catégorie du produit de référence
   @Get(':id/recommendations')
   @ApiOperation({
     summary: 'Obtenir des recommandations de produits basées sur la catégorie',
@@ -330,5 +326,42 @@ export class ProduitsController {
   })
   async getRecommendations(@Param('id', ParseIntPipe) id: number) {
     return this.produitsService.findRecommendedProducts(id);
+  }
+
+  // Endpoint pour afficher les produits concernés par une promotion active et disponibles
+  @Get('promotions/active')
+  @ApiOperation({
+    summary: 'Afficher les produits avec une promotion active et disponibles',
+  })
+  async getProductsWithActivePromotion() {
+    return this.produitsService.findProductsWithActivePromotion();
+  }
+
+  @Delete(':id/promotion/:promotionId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: "Supprimer une promotion d'un produit (admin uniquement)",
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
+  @ApiParam({
+    name: 'promotionId',
+    type: 'number',
+    description: 'ID de la promotion à retirer',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotion supprimée du produit avec succès.',
+  })
+  async removePromotionFromProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('promotionId', ParseIntPipe) promotionId: number,
+    @Request() req,
+  ) {
+    return this.produitsService.removePromotionFromProduct(
+      id,
+      promotionId,
+      req.user,
+    );
   }
 }

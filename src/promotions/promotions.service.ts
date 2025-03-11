@@ -17,6 +17,17 @@ export class PromotionsService {
     private readonly promotionRepository: Repository<Promotion>,
   ) {}
 
+  // Convertit la valeur de etat en boolean
+  private normalizeEtat(etat: boolean | string | undefined): boolean {
+    if (etat === undefined) {
+      return true;
+    }
+    if (typeof etat === 'string') {
+      return etat.toLowerCase() === 'true' || etat.toLowerCase() === 'actif';
+    }
+    return etat;
+  }
+
   async create(
     createPromotionDto: CreatePromotionDto,
     user: UserPayload,
@@ -26,6 +37,8 @@ export class PromotionsService {
         'Seuls les administrateurs peuvent créer des promotions.',
       );
     }
+    // Normaliser et vérifier "etat" si nécessaire
+    createPromotionDto.etat = this.normalizeEtat(createPromotionDto.etat);
     const promotion = this.promotionRepository.create(createPromotionDto);
     return await this.promotionRepository.save(promotion);
   }
@@ -51,6 +64,9 @@ export class PromotionsService {
       throw new UnauthorizedException(
         'Seuls les administrateurs peuvent modifier des promotions.',
       );
+    }
+    if (updatePromotionDto.etat !== undefined) {
+      updatePromotionDto.etat = this.normalizeEtat(updatePromotionDto.etat);
     }
     const promotion = await this.promotionRepository.preload({
       id: id,

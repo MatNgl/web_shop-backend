@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Controller,
   Get,
@@ -27,7 +29,6 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 export class PromotionsController {
   constructor(private readonly promotionsService: PromotionsService) {}
 
-  // Consultation accessible à tous
   @Get()
   @ApiOperation({ summary: 'Récupérer toutes les promotions' })
   @ApiResponse({ status: 200, description: 'Liste des promotions.' })
@@ -46,9 +47,6 @@ export class PromotionsController {
     return this.promotionsService.findOne(+id);
   }
 
-  // Endpoints réservés aux administrateurs
-
-  // Créer une nouvelle promotion
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -59,7 +57,6 @@ export class PromotionsController {
     return this.promotionsService.create(createPromotionDto, req.user);
   }
 
-  // Mettre à jour une promotion
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -78,7 +75,6 @@ export class PromotionsController {
     return this.promotionsService.update(+id, updatePromotionDto, req.user);
   }
 
-  //Supprimer une promotion
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -86,7 +82,6 @@ export class PromotionsController {
   @ApiParam({ name: 'id', type: 'number', description: 'ID de la promotion' })
   @ApiResponse({ status: 200, description: 'Promotion supprimée avec succès.' })
   async remove(@Param('id') id: string, @Request() req) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await this.promotionsService.remove(+id, req.user);
     return { message: `Promotion #${id} supprimée` };
   }

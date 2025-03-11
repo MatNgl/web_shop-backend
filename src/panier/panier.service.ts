@@ -53,7 +53,7 @@ export class PanierService {
       throw new NotFoundException(`Produit #${produitId} introuvable`);
     }
     // Vérifier que le produit est actif
-    if (produit.etat !== 'actif') {
+    if (!produit.etat) {
       throw new BadRequestException(
         `Produit #${produitId} n'est pas disponible`,
       );

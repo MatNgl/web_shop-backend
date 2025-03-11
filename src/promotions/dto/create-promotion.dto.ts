@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsInt, IsDateString, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
+import { PromotionType } from '../enums/promotion-type.enum';
+import { PromotionScope } from '../enums/promotion-scope.enum';
 
 export class CreatePromotionDto {
   @ApiProperty({ example: 'PROMO10', description: 'Code de promotion unique' })
@@ -11,12 +19,7 @@ export class CreatePromotionDto {
     description: 'Description de la promotion',
   })
   @IsString()
-  @IsOptional()
-  description?: string;
-
-  @ApiProperty({ example: 10, description: 'Pourcentage de réduction' })
-  @IsInt()
-  pourcentage_reduction: number;
+  description: string;
 
   @ApiProperty({
     example: '2025-03-01',
@@ -31,4 +34,47 @@ export class CreatePromotionDto {
   })
   @IsDateString()
   date_fin: string;
+
+  @ApiProperty({
+    example: 'POURCENTAGE',
+    description: 'Type de promotion : POURCENTAGE ou MONTANT',
+  })
+  @IsEnum(PromotionType)
+  promotion_type: PromotionType;
+
+  @ApiProperty({
+    example: 10,
+    description:
+      'Valeur de la promotion (10 pour 10% ou 10 pour 10€ en fonction du type)',
+  })
+  @IsNumber()
+  promotion_valeur: number;
+
+  @ApiProperty({
+    example: 'PRODUIT',
+    description: 'Scope de la promotion : COMMANDE, PRODUIT ou CATEGORIE',
+  })
+  @IsEnum(PromotionScope)
+  scope: PromotionScope;
+
+  @ApiProperty({
+    example: 99999999,
+    description: "Limite d'utilisation de la promotion",
+  })
+  @IsNumber()
+  usage_limit: number;
+
+  @ApiProperty({
+    example: 0,
+    description: "Nombre d'utilisations déjà effectuées",
+  })
+  @IsNumber()
+  usage_count: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Etat de la promotion (active ou non)',
+  })
+  @IsBoolean()
+  etat: boolean;
 }

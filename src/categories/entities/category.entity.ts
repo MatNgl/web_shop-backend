@@ -12,6 +12,9 @@ export class Category {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
+  @Column({ default: true })
+  etat: boolean;
+
   @OneToMany(() => SousCategorie, (sousCategorie) => sousCategorie.categorie)
   sousCategories: SousCategorie[];
 }

@@ -8,6 +8,7 @@ import { ProduitStatut } from './entities/produit-statuts.entity';
 import { DessinNumerique } from './entities/dessin-numerique.entity';
 import { Sticker } from './entities/sticker.entity';
 import { PromotionsModule } from '../promotions/promotions.module';
+import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PromotionsModule } from '../promotions/promotions.module';
       ProduitStatut,
       DessinNumerique,
       Sticker,
+      SousCategorie,
     ]),
     PromotionsModule,
   ],

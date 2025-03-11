@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -23,14 +25,14 @@ export class AuthService {
     return null;
   }
 
-  login(user: any) {
+  login(user) {
     const payload = { email: user.email, sub: user.id, role: user.role };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '1h' }),
     };
   }
 
-  async register(createUserDto: any) {
+  async register(createUserDto) {
     return this.usersService.create(createUserDto);
   }
 
@@ -47,7 +49,7 @@ export class AuthService {
     // Générer un token aléatoire
     const token = crypto.randomBytes(32).toString('hex');
     // Définir une expiration (416 jours)
-    const expiry = new Date(Date.now() + 36000000);
+    const expiry = new Date(Date.now() + 3600);
     // Mettre à jour l'utilisateur avec le token et sa date d'expiration
     await this.usersService.update(user.id, {
       resetPasswordToken: token,
