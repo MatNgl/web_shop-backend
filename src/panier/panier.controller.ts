@@ -11,7 +11,6 @@ import {
   Param,
   UseGuards,
   Request,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -190,32 +189,13 @@ export class PanierController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Valider le panier et créer une commande' })
-  @ApiBody({
-    description:
-      'Les informations de livraison et de paiement pour la commande',
-    type: ValidatePanierDto,
-    examples: {
-      exemple1: {
-        summary: 'Exemple de validation de panier',
-        value: {
-          shippingAddress: '123 Rue de Paris, 75000 Paris',
-          paymentMethod: 'Carte bancaire',
-        },
-      },
-    },
-  })
+  @ApiBody({ type: ValidatePanierDto })
   @ApiResponse({ status: 201, description: 'Commande créée avec succès.' })
   async validatePanier(
     @Request() req,
     @Body() validatePanierDto: ValidatePanierDto,
   ) {
-    const panier = await this.panierService.getPanier(req.user);
-    if (!panier.articles || panier.articles.length === 0) {
-      throw new BadRequestException(
-        'Votre panier est vide, vous ne pouvez pas passer commande.',
-      );
-    }
-    return await this.panierService.validatePanier(
+    return this.panierService.validatePanier(
       req.user,
       validatePanierDto.shippingAddress,
       validatePanierDto.paymentMethod,

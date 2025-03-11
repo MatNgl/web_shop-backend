@@ -136,24 +136,32 @@ export class PanierService {
     user: UserPayload,
     shippingAddress: string,
     paymentMethod: string,
-  ) {
+  ): Promise<any> {
+    // Récupérer ou créer le panier de l'utilisateur
     const panier = await this.getOrCreatePanier(user.id);
 
+    // Vérifier que le panier n'est pas vide
     if (!panier.articles || panier.articles.length === 0) {
       throw new BadRequestException(
         'Votre panier est vide, vous ne pouvez pas passer commande.',
       );
     }
 
-    const createCommandeDto: CreateCommandeDto = {
+    // Ici, vous pouvez calculer le total du panier, appliquer des remises, etc.
+    // Par exemple :
+    // const total = panier.articles.reduce((acc, article) => acc + article.produit.prix * article.quantite, 0);
+
+    // Créer la commande
+    const createCommandeDto = {
       userId: user.id,
       shippingAddress,
       paymentMethod,
-    };
+      // Vous pouvez ajouter ici le total, la liste des articles, etc.
+    } as CreateCommandeDto;
 
     const commande = await this.commandesService.create(createCommandeDto);
 
-    // Vider le panier après la validation
+    // Vider le panier après validation
     await this.viderPanier(user);
 
     return commande;

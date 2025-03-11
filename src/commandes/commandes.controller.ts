@@ -3,11 +3,13 @@ import {
   Get,
   Post,
   Body,
-  Param,
   Patch,
+  Param,
   Delete,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
-import { CommandesService } from './commandes.service';
+import { CommandesService, CreateCommandePayload } from './commandes.service';
 import { CreateCommandeDto } from './dto/create-commande.dto';
 import { UpdateCommandeDto } from './dto/update-commande.dto';
 import {
@@ -16,7 +18,9 @@ import {
   ApiResponse,
   ApiBody,
   ApiParam,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @ApiTags('Commandes')
 @Controller('commandes')
@@ -24,11 +28,14 @@ export class CommandesController {
   constructor(private readonly commandesService: CommandesService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Créer une nouvelle commande (à partir d’un panier validé)',
   })
   @ApiBody({
-    description: 'Données nécessaires pour créer une commande',
+    description:
+      'Données nécessaires pour créer une commande (adresse de livraison et moyen de paiement). Le userId est récupéré automatiquement.',
     type: CreateCommandeDto,
     examples: {
       exemple1: {
@@ -36,16 +43,16 @@ export class CommandesController {
         value: {
           shippingAddress: '123 Rue de Paris, 75000 Paris',
           paymentMethod: 'Carte bancaire',
-          userId: 1,
         },
       },
     },
   })
   @ApiResponse({ status: 201, description: 'Commande créée avec succès.' })
-  async create(@Body() createCommandeDto: CreateCommandeDto) {
+  async create(@Body() createCommandeDto: CreateCommandeDto, @Request() req) {
+    createCommandeDto.userId = req.user.id;
     return this.commandesService.create(createCommandeDto);
   }
-
+  
   @Get()
   @ApiOperation({ summary: 'Récupérer toutes les commandes (admin)' })
   @ApiResponse({

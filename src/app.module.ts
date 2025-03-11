@@ -28,6 +28,7 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { DessinNumerique } from './produits/entities/dessin-numerique.entity';
 import { Sticker } from './produits/entities/sticker.entity';
+import { AdresseModule } from './adresses/adresse.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { Sticker } from './produits/entities/sticker.entity';
     PanierModule,
     PromotionsModule,
     WishlistModule,
+    AdresseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
