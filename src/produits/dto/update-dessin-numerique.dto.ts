@@ -1,3 +1,4 @@
+// src/produits/dto/update-dessin-numerique.dto.ts
 import { UpdateProduitDto } from './update-produit.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';

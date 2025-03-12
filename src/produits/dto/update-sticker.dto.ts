@@ -1,3 +1,4 @@
+// src/produits/dto/update-sticker.dto.ts
 import { UpdateProduitDto } from './update-produit.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';

@@ -1,14 +1,13 @@
+// src/produits/produits.service.ts
 import {
   Injectable,
   UnauthorizedException,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, Not } from 'typeorm';
 import { Produit } from './entities/produit.entity';
 import { PromotionsService } from 'src/promotions/promotions.service';
-import { ProduitStatut } from './entities/produit-statuts.entity';
 import { ProduitImage } from './entities/produit-image.entity';
 import { CreateProduitDto } from './dto/create-produit.dto';
 import { UpdateProduitDto } from './dto/update-produit.dto';
@@ -20,6 +19,10 @@ import { ArticlePanier } from 'src/panier/entities/article-panier.entity';
 import { WishlistItem } from 'src/wishlist/entities/wishlist-item.entity';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
 import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
+import { Inventaire } from './entities/inventaire.entity';
+import { HistoriqueInventaire } from './entities/historique_inventaire.entity';
+import { UpdateDessinNumeriqueDto } from './dto/update-dessin-numerique.dto';
+import { UpdateStickerDto } from './dto/update-sticker.dto';
 
 @Injectable()
 export class ProduitsService {
@@ -27,8 +30,7 @@ export class ProduitsService {
     @InjectRepository(Produit)
     private readonly produitRepository: Repository<Produit>,
 
-    @InjectRepository(ProduitStatut)
-    private readonly produitStatutRepository: Repository<ProduitStatut>,
+    private readonly promotionsService: PromotionsService,
 
     @InjectRepository(ProduitImage)
     private readonly produitImageRepository: Repository<ProduitImage>,
@@ -39,59 +41,18 @@ export class ProduitsService {
     @InjectRepository(Sticker)
     private readonly stickerRepository: Repository<Sticker>,
 
-    private readonly promotionsService: PromotionsService,
-
     @InjectRepository(SousCategorie)
     private readonly sousCategorieRepository: Repository<SousCategorie>,
+
+    @InjectRepository(Inventaire)
+    private readonly inventaireRepository: Repository<Inventaire>,
+
+    @InjectRepository(HistoriqueInventaire)
+    private readonly historiqueInventaireRepository: Repository<HistoriqueInventaire>,
   ) {}
 
-  private async determineStatut(
-    stock: number,
-    // Pour la détermination du statut, on ne se base plus sur promotion_id,
-    // mais éventuellement sur les promotions associées au produit. On peut ici
-    // simplifier en ne prenant pas en compte la promotion (ou adapter la logique)
-    promotionId?: number | null,
-  ): Promise<ProduitStatut> {
-    // Votre logique existante reste valable pour déterminer le statut (sans lien direct avec la table de jointure)
-    if (promotionId != null) {
-      try {
-        const promotion = await this.promotionsService.findOne(promotionId);
-        if (promotion) {
-          const now = new Date();
-          const debut = new Date(promotion.date_debut);
-          const fin = new Date(promotion.date_fin);
-          if (now >= debut && now <= fin) {
-            const enPromo = await this.produitStatutRepository.findOne({
-              where: { nom: 'En promotion' },
-            });
-            if (enPromo) return enPromo;
-          }
-        }
-      } catch {
-        // Ignorer l'erreur si la promotion n'est pas trouvée
-      }
-    }
-    if (stock === 0) {
-      const rupture = await this.produitStatutRepository.findOne({
-        where: { nom: 'En rupture' },
-      });
-      if (rupture) return rupture;
-    }
-    const disponible = await this.produitStatutRepository.findOne({
-      where: { nom: 'Disponible' },
-    });
-    if (disponible) return disponible;
-    const arrete = await this.produitStatutRepository.findOne({
-      where: { nom: 'Arrêté' },
-    });
-    if (arrete) return arrete;
-    throw new BadRequestException("Aucun statut n'a pu être déterminé");
-  }
-
   private normalizeEtat(etat: boolean | string | undefined): boolean {
-    if (etat === undefined) {
-      return true;
-    }
+    if (etat === undefined) return true;
     if (typeof etat === 'string') {
       return etat.toLowerCase() === 'true' || etat.toLowerCase() === 'actif';
     }
@@ -107,14 +68,32 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    const { images, etat, sousCategorieIds, promotion_ids, ...produitData } =
-      createProduitDto;
+    const {
+      images,
+      etat,
+      sousCategorieIds,
+      promotion_ids,
+      stock,
+      ...produitData
+    } = createProduitDto;
     const produit = this.produitRepository.create(produitData);
     produit.etat = this.normalizeEtat(etat);
-    produit.statut = await this.determineStatut(produit.stock ?? 0, undefined);
     const savedProduct = await this.produitRepository.save(produit);
 
-    // Association des images
+    if (stock !== undefined) {
+      const inventaire = this.inventaireRepository.create({
+        produit_id: savedProduct.id,
+        quantite: stock,
+      });
+      await this.inventaireRepository.save(inventaire);
+      await this.historiqueInventaireRepository.save({
+        produit_id: savedProduct.id,
+        quantite_avant: 0,
+        quantite_apres: stock,
+        modifie_par: user.id,
+      });
+    }
+
     if (images && images.length > 0) {
       for (const url of images) {
         const produitImage = this.produitImageRepository.create({
@@ -125,7 +104,6 @@ export class ProduitsService {
       }
     }
 
-    // Association des promotions
     if (promotion_ids && promotion_ids.length > 0) {
       const promotions = await Promise.all(
         promotion_ids.map(
@@ -136,7 +114,6 @@ export class ProduitsService {
       await this.produitRepository.save(savedProduct);
     }
 
-    // Association des sous-catégories
     if (sousCategorieIds && sousCategorieIds.length > 0) {
       const sousCategories =
         await this.sousCategorieRepository.findByIds(sousCategorieIds);
@@ -156,16 +133,30 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    const { images, resolution, dimensions, etat, ...produitData } =
+    const { images, resolution, dimensions, etat, stock, ...produitData } =
       createDessinDto;
     const produit = this.produitRepository.create(produitData);
     produit.etat = this.normalizeEtat(etat);
-    produit.statut = await this.determineStatut(produit.stock ?? 0, null);
     const savedProduct = await this.produitRepository.save(produit);
 
+    if (stock !== undefined) {
+      const inventaire = this.inventaireRepository.create({
+        produit_id: savedProduct.id,
+        quantite: stock,
+      });
+      await this.inventaireRepository.save(inventaire);
+      await this.historiqueInventaireRepository.save({
+        produit_id: savedProduct.id,
+        quantite_avant: 0,
+        quantite_apres: stock,
+        modifie_par: user.id,
+      });
+    }
+
+    // Ici, on mappe "resolution" (du DTO) sur "format" de l'entité
     const dessin = this.dessinRepository.create({
       produit_id: savedProduct.id,
-      resolution,
+      format: resolution,
       dimensions,
     });
     await this.dessinRepository.save(dessin);
@@ -191,18 +182,39 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    const { images, format, dimensions, materiau, etat, ...produitData } =
-      createStickerDto;
+    const {
+      images,
+      format,
+      dimensions,
+      materiau,
+      etat,
+      stock,
+      ...produitData
+    } = createStickerDto;
     const produit = this.produitRepository.create(produitData);
     produit.etat = this.normalizeEtat(etat);
-    produit.statut = await this.determineStatut(produit.stock ?? 0, null);
     const savedProduct = await this.produitRepository.save(produit);
 
+    if (stock !== undefined) {
+      const inventaire = this.inventaireRepository.create({
+        produit_id: savedProduct.id,
+        quantite: stock,
+      });
+      await this.inventaireRepository.save(inventaire);
+      await this.historiqueInventaireRepository.save({
+        produit_id: savedProduct.id,
+        quantite_avant: 0,
+        quantite_apres: stock,
+        modifie_par: user.id,
+      });
+    }
+
+    // Ici, on mappe "materiau" (du DTO) sur "support" de l'entité Sticker
     const sticker = this.stickerRepository.create({
       produit_id: savedProduct.id,
       format,
       dimensions,
-      materiau,
+      support: materiau,
     });
     await this.stickerRepository.save(sticker);
 
@@ -220,14 +232,14 @@ export class ProduitsService {
 
   async findAll(): Promise<Produit[]> {
     return await this.produitRepository.find({
-      relations: ['statut', 'images', 'promotions'],
+      relations: ['images', 'promotions', 'sousCategories'],
     });
   }
 
   async findOne(id: number): Promise<Produit> {
     const produit = await this.produitRepository.findOne({
       where: { id },
-      relations: ['statut', 'images', 'promotions'],
+      relations: ['images', 'promotions', 'sousCategories'],
     });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
@@ -245,9 +257,19 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent mettre à jour des produits.',
       );
     }
-    const { images, etat, sousCategorieIds, promotion_ids, ...updateData } =
-      updateProduitDto;
-    const produit = await this.produitRepository.preload({ id, ...updateData });
+    // Exclure "images" du preload pour éviter les problèmes de type
+    const {
+      images: _ignored,
+      etat,
+      sousCategorieIds,
+      promotion_ids,
+      stock,
+      ...updateData
+    } = updateProduitDto;
+    const produit = await this.produitRepository.preload({
+      id,
+      ...updateData,
+    } as Partial<Produit>);
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
     }
@@ -267,9 +289,9 @@ export class ProduitsService {
         await this.sousCategorieRepository.findByIds(sousCategorieIds);
       produit.sousCategories = sousCategories;
     }
-    if (images) {
+    if (_ignored) {
       await this.produitImageRepository.delete({ produit: { id } });
-      for (const url of images) {
+      for (const url of _ignored) {
         const produitImage = this.produitImageRepository.create({
           produit,
           url,
@@ -277,7 +299,156 @@ export class ProduitsService {
         await this.produitImageRepository.save(produitImage);
       }
     }
-    produit.statut = await this.determineStatut(produit.stock ?? 0, undefined);
+    if (stock !== undefined) {
+      let inventaire = await this.inventaireRepository.findOne({
+        where: { produit_id: id },
+      });
+      if (!inventaire) {
+        inventaire = this.inventaireRepository.create({
+          produit_id: id,
+          quantite: stock,
+        });
+        await this.inventaireRepository.save(inventaire);
+        await this.historiqueInventaireRepository.save({
+          produit_id: id,
+          quantite_avant: 0,
+          quantite_apres: stock,
+          modifie_par: user.id,
+        });
+      } else {
+        const previousStock = inventaire.quantite;
+        inventaire.quantite = stock;
+        await this.inventaireRepository.save(inventaire);
+        await this.historiqueInventaireRepository.save({
+          produit_id: id,
+          quantite_avant: previousStock,
+          quantite_apres: stock,
+          modifie_par: user.id,
+        });
+      }
+    }
+    return await this.produitRepository.save(produit);
+  }
+
+  async updateDessinNumerique(
+    id: number,
+    updateDessinDto: UpdateDessinNumeriqueDto,
+    user: UserPayload,
+  ): Promise<Produit> {
+    if (user.role !== 'admin') {
+      throw new UnauthorizedException(
+        'Seuls les administrateurs peuvent mettre à jour un dessin numérique.',
+      );
+    }
+    // Extraire les champs spécifiques (du DTO, "resolution" sera mappé sur "format")
+    const { resolution, dimensions, stock, ...produitData } = updateDessinDto;
+    const produit = await this.produitRepository.preload({
+      id,
+      ...produitData,
+    } as Partial<Produit>);
+    if (!produit) {
+      throw new NotFoundException(`Produit #${id} introuvable`);
+    }
+    const dessin = await this.dessinRepository.findOne({
+      where: { produit_id: id },
+    });
+    if (!dessin) {
+      throw new NotFoundException(
+        `Dessin numérique pour le produit #${id} introuvable`,
+      );
+    }
+    if (resolution !== undefined) dessin.format = resolution;
+    if (dimensions !== undefined) dessin.dimensions = dimensions;
+    await this.dessinRepository.save(dessin);
+    if (stock !== undefined) {
+      let inventaire = await this.inventaireRepository.findOne({
+        where: { produit_id: id },
+      });
+      if (!inventaire) {
+        inventaire = this.inventaireRepository.create({
+          produit_id: id,
+          quantite: stock,
+        });
+        await this.inventaireRepository.save(inventaire);
+        await this.historiqueInventaireRepository.save({
+          produit_id: id,
+          quantite_avant: 0,
+          quantite_apres: stock,
+          modifie_par: user.id,
+        });
+      } else {
+        const previousStock = inventaire.quantite;
+        inventaire.quantite = stock;
+        await this.inventaireRepository.save(inventaire);
+        await this.historiqueInventaireRepository.save({
+          produit_id: id,
+          quantite_avant: previousStock,
+          quantite_apres: stock,
+          modifie_par: user.id,
+        });
+      }
+    }
+    return await this.produitRepository.save(produit);
+  }
+
+  async updateSticker(
+    id: number,
+    updateStickerDto: UpdateStickerDto,
+    user: UserPayload,
+  ): Promise<Produit> {
+    if (user.role !== 'admin') {
+      throw new UnauthorizedException(
+        'Seuls les administrateurs peuvent mettre à jour un sticker.',
+      );
+    }
+    // Extraire les champs spécifiques (remarquez que "materiau" sera mappé sur "support")
+    const { format, dimensions, materiau, stock, ...produitData } =
+      updateStickerDto;
+    const produit = await this.produitRepository.preload({
+      id,
+      ...produitData,
+    } as Partial<Produit>);
+    if (!produit) {
+      throw new NotFoundException(`Produit #${id} introuvable`);
+    }
+    const sticker = await this.stickerRepository.findOne({
+      where: { produit_id: id },
+    });
+    if (!sticker) {
+      throw new NotFoundException(`Sticker pour le produit #${id} introuvable`);
+    }
+    if (format !== undefined) sticker.format = format;
+    if (dimensions !== undefined) sticker.dimensions = dimensions;
+    if (materiau !== undefined) sticker.support = materiau;
+    await this.stickerRepository.save(sticker);
+    if (stock !== undefined) {
+      let inventaire = await this.inventaireRepository.findOne({
+        where: { produit_id: id },
+      });
+      if (!inventaire) {
+        inventaire = this.inventaireRepository.create({
+          produit_id: id,
+          quantite: stock,
+        });
+        await this.inventaireRepository.save(inventaire);
+        await this.historiqueInventaireRepository.save({
+          produit_id: id,
+          quantite_avant: 0,
+          quantite_apres: stock,
+          modifie_par: user.id,
+        });
+      } else {
+        const previousStock = inventaire.quantite;
+        inventaire.quantite = stock;
+        await this.inventaireRepository.save(inventaire);
+        await this.historiqueInventaireRepository.save({
+          produit_id: id,
+          quantite_avant: previousStock,
+          quantite_apres: stock,
+          modifie_par: user.id,
+        });
+      }
+    }
     return await this.produitRepository.save(produit);
   }
 
@@ -301,7 +472,7 @@ export class ProduitsService {
 
   async updateStock(
     id: number,
-    stock: number,
+    newStock: number,
     user: UserPayload,
   ): Promise<Produit> {
     if (user.role !== 'admin') {
@@ -310,9 +481,33 @@ export class ProduitsService {
       );
     }
     const produit = await this.findOne(id);
-    produit.stock = stock;
-    produit.statut = await this.determineStatut(produit.stock ?? 0, null);
-    return await this.produitRepository.save(produit);
+    let inventaire = await this.inventaireRepository.findOne({
+      where: { produit_id: id },
+    });
+    if (!inventaire) {
+      inventaire = this.inventaireRepository.create({
+        produit_id: id,
+        quantite: newStock,
+      });
+      await this.inventaireRepository.save(inventaire);
+      await this.historiqueInventaireRepository.save({
+        produit_id: id,
+        quantite_avant: 0,
+        quantite_apres: newStock,
+        modifie_par: user.id,
+      });
+    } else {
+      const previousStock = inventaire.quantite;
+      inventaire.quantite = newStock;
+      await this.inventaireRepository.save(inventaire);
+      await this.historiqueInventaireRepository.save({
+        produit_id: id,
+        quantite_avant: previousStock,
+        quantite_apres: newStock,
+        modifie_par: user.id,
+      });
+    }
+    return produit;
   }
 
   async applyPromotion(
@@ -326,23 +521,15 @@ export class ProduitsService {
       );
     }
     const produit = await this.findOne(id);
-    // Ici, on travaille avec la relation ManyToMany (produit.promotions)
     if (promotionId !== null) {
-      // Récupérer la promotion
       const promotion = await this.promotionsService.findOne(promotionId);
-      if (!produit.promotions) {
-        produit.promotions = [];
-      }
-      // Ajouter la promotion si elle n'est pas déjà présente
+      produit.promotions = produit.promotions || [];
       if (!produit.promotions.find((p) => p.id === promotion.id)) {
         produit.promotions.push(promotion);
       }
     } else {
-      // Si promotionId est null, on retire toutes les promotions du produit
       produit.promotions = [];
     }
-    // Recalculer le statut (vous pouvez adapter la logique ici selon vos besoins)
-    produit.statut = await this.determineStatut(produit.stock ?? 0, null);
     return await this.produitRepository.save(produit);
   }
 
@@ -352,14 +539,14 @@ export class ProduitsService {
     }
     return await this.produitRepository.find({
       where: { nom: ILike(`%${nom}%`) },
-      relations: ['statut', 'images', 'promotions'],
+      relations: ['images', 'promotions', 'sousCategories'],
     });
   }
 
   async findByCategory(categoryId: number): Promise<Produit[]> {
     return await this.produitRepository.find({
       where: { categorie_id: categoryId },
-      relations: ['statut', 'images', 'promotions'],
+      relations: ['images', 'promotions', 'sousCategories'],
     });
   }
 
@@ -369,20 +556,15 @@ export class ProduitsService {
       throw new NotFoundException(`Produit #${productId} introuvable`);
     }
     const sameCategoryProducts = await this.produitRepository.find({
-      where: {
-        categorie_id: product.categorie_id,
-        id: Not(productId),
-      },
-      relations: ['statut', 'images', 'promotions'],
+      where: { categorie_id: product.categorie_id, id: Not(productId) },
+      relations: ['images', 'promotions', 'sousCategories'],
     });
     const shuffledSameCategory = sameCategoryProducts.sort(
       () => Math.random() - 0.5,
     );
     const otherProducts = await this.produitRepository.find({
-      where: {
-        categorie_id: Not(product.categorie_id),
-      },
-      relations: ['statut', 'images', 'promotions'],
+      where: { categorie_id: Not(product.categorie_id) },
+      relations: ['images', 'promotions', 'sousCategories'],
     });
     return [...shuffledSameCategory, ...otherProducts];
   }
@@ -391,18 +573,17 @@ export class ProduitsService {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return await this.produitRepository
       .createQueryBuilder('produit')
-      .leftJoinAndSelect('produit.statut', 'statut')
       .leftJoinAndSelect('produit.images', 'images')
       .leftJoinAndSelect('produit.promotions', 'promotions')
+      .leftJoinAndSelect('produit.sousCategories', 'sousCategories')
       .where('produit.created_at >= :sevenDaysAgo', { sevenDaysAgo })
       .getMany();
   }
 
   async findProductsWithActivePromotion(): Promise<Produit[]> {
-    // Récupérer tous les produits actifs avec leurs promotions
     const products = await this.produitRepository.find({
       where: { etat: true },
-      relations: ['statut', 'images', 'promotions'],
+      relations: ['images', 'promotions', 'sousCategories'],
     });
     const now = new Date();
     return products.filter(
@@ -416,7 +597,6 @@ export class ProduitsService {
     );
   }
 
-  // Dans src/produits/produits.service.ts
   async removePromotionFromProduct(
     productId: number,
     promotionId: number,

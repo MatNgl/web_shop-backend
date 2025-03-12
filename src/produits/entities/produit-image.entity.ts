@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { Produit } from './produit.entity';
 
-@Entity('produit_images') // Le nom exact de la table dans votre base
+@Entity('produit_images')
 export class ProduitImage {
   @PrimaryGeneratedColumn()
   id: number;

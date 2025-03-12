@@ -1,3 +1,4 @@
+// src/produits/entities/dessin-numerique.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity('dessins_numeriques')
@@ -9,8 +10,11 @@ export class DessinNumerique {
   produit_id: number;
 
   @Column({ length: 50 })
-  resolution: string; // ex: "1920x1080"
+  format: string; // Ici, nous stockons la résolution (ex. "1920x1080")
 
   @Column({ length: 50 })
-  dimensions: string; // ex: "A4", "A3", etc.
+  dimensions: string; // Ex. "A4", "A3", etc.
+
+  @Column({ length: 255, nullable: true })
+  support?: string;
 }

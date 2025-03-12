@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Panier } from './entities/panier.entity';
 import { ArticlePanier } from './entities/article-panier.entity';
 import { Produit } from 'src/produits/entities/produit.entity';
+import { Inventaire } from 'src/produits/entities/inventaire.entity';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
 import { CommandesService } from 'src/commandes/commandes.service';
 import { CreateCommandeDto } from 'src/commandes/dto/create-commande.dto';
@@ -21,6 +22,8 @@ export class PanierService {
     private readonly articlePanierRepository: Repository<ArticlePanier>,
     @InjectRepository(Produit)
     private readonly produitRepository: Repository<Produit>,
+    @InjectRepository(Inventaire)
+    private readonly inventaireRepository: Repository<Inventaire>,
     private readonly commandesService: CommandesService,
   ) {}
 
@@ -31,8 +34,8 @@ export class PanierService {
     });
     if (!panier) {
       panier = this.panierRepository.create({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        user: { id: userId } as any,
+        // On assigne uniquement l'ID de l'utilisateur
+        user: { id: userId },
       });
       panier = await this.panierRepository.save(panier);
     }
@@ -59,17 +62,23 @@ export class PanierService {
       );
     }
 
-    if (quantite > (produit.stock ?? 0)) {
+    // Récupérer l'enregistrement Inventaire pour connaître le stock disponible
+    const inventaire = await this.inventaireRepository.findOne({
+      where: { produit_id: produitId },
+    });
+    const availableStock = inventaire ? inventaire.quantite : 0;
+
+    if (quantite > availableStock) {
       throw new BadRequestException(
-        `Stock insuffisant pour le produit #${produitId}, disponible: ${produit.stock ?? 0}`,
+        `Stock insuffisant pour le produit #${produitId}, disponible: ${availableStock}`,
       );
     }
 
     let article = panier.articles.find((a) => a.produit.id === produitId);
     if (article) {
-      if (article.quantite + quantite > (produit.stock ?? 0)) {
+      if (article.quantite + quantite > availableStock) {
         throw new BadRequestException(
-          `Quantité totale dépasse le stock disponible. Disponible: ${produit.stock ?? 0}`,
+          `Quantité totale dépasse le stock disponible. Disponible: ${availableStock}`,
         );
       }
       article.quantite += quantite;
@@ -99,9 +108,15 @@ export class PanierService {
       );
     }
 
-    if (quantite > (article.produit.stock ?? 0)) {
+    // Récupérer l'enregistrement Inventaire pour obtenir le stock disponible du produit
+    const inventaire = await this.inventaireRepository.findOne({
+      where: { produit_id: article.produit.id },
+    });
+    const availableStock = inventaire ? inventaire.quantite : 0;
+
+    if (quantite > availableStock) {
       throw new BadRequestException(
-        `Stock insuffisant. Disponible: ${article.produit.stock ?? 0}`,
+        `Stock insuffisant. Disponible: ${availableStock}`,
       );
     }
 
@@ -137,31 +152,22 @@ export class PanierService {
     shippingAddress: string,
     paymentMethod: string,
   ): Promise<any> {
-    // Récupérer ou créer le panier de l'utilisateur
     const panier = await this.getOrCreatePanier(user.id);
 
-    // Vérifier que le panier n'est pas vide
     if (!panier.articles || panier.articles.length === 0) {
       throw new BadRequestException(
         'Votre panier est vide, vous ne pouvez pas passer commande.',
       );
     }
 
-    // Ici, vous pouvez calculer le total du panier, appliquer des remises, etc.
-    // Par exemple :
-    // const total = panier.articles.reduce((acc, article) => acc + article.produit.prix * article.quantite, 0);
-
-    // Créer la commande
     const createCommandeDto = {
       userId: user.id,
       shippingAddress,
       paymentMethod,
-      // Vous pouvez ajouter ici le total, la liste des articles, etc.
     } as CreateCommandeDto;
 
     const commande = await this.commandesService.create(createCommandeDto);
 
-    // Vider le panier après validation
     await this.viderPanier(user);
 
     return commande;

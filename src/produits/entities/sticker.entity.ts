@@ -1,3 +1,4 @@
+// src/produits/entities/sticker.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity('sticker')
@@ -9,11 +10,11 @@ export class Sticker {
   produit_id: number;
 
   @Column({ length: 50 })
-  format: string; // ex. "rond", "carré", "rectangulaire"
+  format: string; // Ex. "rond", "carré", "rectangulaire"
 
   @Column({ length: 50 })
-  dimensions: string; // ex. "10x10cm", "5x7cm", etc.
+  dimensions: string; // Ex. "10x10cm", "5x7cm", etc.
 
   @Column({ length: 50 })
-  materiau: string; // ex. "vinyle", "papier", etc.
+  support: string; // Ici, nous stockons la valeur de "materiau"
 }

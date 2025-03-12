@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 // src/produits/dto/create-produit.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsNumber,
   IsOptional,
@@ -61,6 +62,13 @@ export class CreateProduitDto {
   images?: string[];
 
   @ApiProperty({ example: true, description: 'Etat du produit' })
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true' || value.toLowerCase() === 'actif';
+    }
+    return value;
+  })
   @IsBoolean()
   etat: boolean;
 
