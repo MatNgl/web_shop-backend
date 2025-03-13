@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 // src/produits/dto/create-produit.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
@@ -9,7 +8,11 @@ import {
   IsNotEmpty,
   IsArray,
   IsBoolean,
+  IsEnum,
+  ValidateNested,
 } from 'class-validator';
+import { ProduitType } from '../entities/produit.entity';
+import { CreateProduitDetailDto } from './create-produit-detail.dto';
 
 export class CreateProduitDto {
   @ApiProperty({ example: 'Mon Produit' })
@@ -17,9 +20,9 @@ export class CreateProduitDto {
   @IsNotEmpty()
   nom: string;
 
-  @ApiPropertyOptional({ example: 'Ceci est la description du produit' })
-  @IsString()
+  @ApiPropertyOptional({ example: 'Description du produit' })
   @IsOptional()
+  @IsString()
   description?: string;
 
   @ApiProperty({ example: 99.99 })
@@ -38,19 +41,22 @@ export class CreateProduitDto {
   @Type(() => Number)
   categorie_id: number;
 
-  @ApiProperty({ example: 1 })
-  @IsNumber()
-  @Type(() => Number)
-  statut_id: number;
+  @ApiProperty({ example: ProduitType.AUTRE, enum: ProduitType })
+  @IsEnum(ProduitType, {
+    message: "Le type doit être 'dessin numérique', 'sticker' ou 'autre'",
+  })
+  type: ProduitType;
 
+  // Promotion appliquée directement : un seul ID (optionnel)
   @ApiPropertyOptional({
-    example: [1],
-    description: 'Liste des IDs de promotions associées au produit',
+    example: 1,
+    description:
+      'ID de la promotion appliquée directement au produit (uniquement pour les promos de produit)',
   })
   @IsOptional()
-  @IsArray()
+  @IsNumber()
   @Type(() => Number)
-  promotion_ids?: number[];
+  promotion_id?: number;
 
   @ApiPropertyOptional({
     description: 'Tableau d’URLs (optionnel si vous gérez l’upload)',
@@ -80,4 +86,13 @@ export class CreateProduitDto {
   @IsArray()
   @Type(() => Number)
   sousCategorieIds?: number[];
+
+  @ApiPropertyOptional({
+    description:
+      'Détails spécifiques du produit (si type est dessin numérique ou sticker)',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateProduitDetailDto)
+  detail?: CreateProduitDetailDto;
 }

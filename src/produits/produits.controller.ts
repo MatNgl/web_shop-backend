@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
+  Body,
   Controller,
   Get,
   Post,
-  Body,
   Patch,
-  Param,
   Delete,
   UseGuards,
   Request,
@@ -14,12 +11,12 @@ import {
   UseInterceptors,
   UploadedFiles,
   ParseIntPipe,
+  Param,
 } from '@nestjs/common';
 import { ProduitsService } from './produits.service';
 import { CreateProduitDto } from './dto/create-produit.dto';
 import { UpdateProduitDto } from './dto/update-produit.dto';
-import { CreateDessinNumeriqueDto } from './dto/create-dessin-numerique.dto';
-import { CreateStickerDto } from './dto/create-sticker.dto';
+import { UpdateProduitDetailDto } from './dto/update-produit-detail.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -33,8 +30,6 @@ import {
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerOptions } from 'src/config/multer.config';
-import { UpdateDessinNumeriqueDto } from './dto/update-dessin-numerique.dto';
-import { UpdateStickerDto } from './dto/update-sticker.dto';
 
 @ApiTags('Produits')
 @Controller('produits')
@@ -83,33 +78,69 @@ export class ProduitsController {
     return this.produitsService.findOne(id);
   }
 
+  /**
+   * Endpoint de création de produit.
+   * Les données du produit sont envoyées en JSON (dans le body) et les images via le champ "files".
+   */
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Créer un nouveau produit (admin uniquement)' })
   @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Créer un nouveau produit (admin uniquement)' })
   @ApiBody({
+    description:
+      'Créer un nouveau produit avec upload de plusieurs images et données JSON',
     schema: {
       type: 'object',
       properties: {
-        nom: { type: 'string', example: 'Mon Produit' },
-        description: {
+        nom: { type: 'string', example: 'Sticker Cool' },
+        description: { type: 'string', example: 'Mon sticker super cool' },
+        prix: { type: 'number', example: 15.99 },
+        stock: { type: 'number', example: 200 },
+        categorie_id: { type: 'number', example: 3 },
+        // Ici, on attend un seul ID de promotion
+        promotion_id: { type: 'number', example: 1 },
+        type: {
           type: 'string',
-          example: 'Ceci est la description du produit',
-        },
-        prix: { type: 'number', example: 99.99 },
-        stock: { type: 'number', example: 100 },
-        categorie_id: { type: 'number', example: 1 },
-        promotion_ids: {
-          type: 'array',
-          items: { type: 'number' },
-          example: [1],
+          enum: ['dessin numérique', 'sticker', 'autre'],
+          example: 'sticker',
         },
         etat: { type: 'boolean', example: true },
-        files: { type: 'array', items: { type: 'string', format: 'binary' } },
+        sousCategorieIds: {
+          type: 'object',
+          items: { type: 'number' },
+          example: [1, 2],
+        },
+        detail: {
+          type: 'object',
+          properties: {
+            format: { type: 'string', example: 'rond' },
+            dimensions: { type: 'string', example: '10x10cm' },
+            support: { type: 'string', example: 'vinyle' },
+          },
+          example: {
+            format: 'rond',
+            dimensions: '10x10cm',
+            support: 'vinyle',
+          },
+        },
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description:
+            'Sélectionnez plusieurs images depuis votre explorateur de fichiers',
+        },
       },
-      required: ['nom', 'prix', 'categorie_id', 'etat'],
+      required: [
+        'nom',
+        'description',
+        'stock',
+        'prix',
+        'categorie_id',
+        'type',
+        'etat',
+      ],
     },
   })
   @ApiResponse({ status: 201, description: 'Produit créé avec succès.' })
@@ -121,109 +152,6 @@ export class ProduitsController {
     const images = files.map((file) => `/uploads/${file.filename}`);
     createProduitDto.images = images;
     return this.produitsService.create(createProduitDto, req.user);
-  }
-
-  @Post('dessin-numerique')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Créer un dessin numérique (admin uniquement)' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        nom: { type: 'string', example: 'Dessin Digital' },
-        description: {
-          type: 'string',
-          example: 'Description du dessin numérique',
-        },
-        prix: { type: 'number', example: 120.5 },
-        stock: { type: 'number', example: 50 },
-        categorie_id: { type: 'number', example: 2 },
-        promotion_ids: {
-          type: 'array',
-          items: { type: 'number' },
-          example: [1],
-        },
-        resolution: { type: 'string', example: '1920x1080' },
-        dimensions: { type: 'string', example: 'A4' },
-        etat: { type: 'boolean', example: true },
-        files: { type: 'array', items: { type: 'string', format: 'binary' } },
-      },
-      required: [
-        'nom',
-        'prix',
-        'categorie_id',
-        'resolution',
-        'dimensions',
-        'etat',
-      ],
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Dessin numérique créé avec succès.',
-  })
-  async createDessinNumerique(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() createDessinDto: CreateDessinNumeriqueDto,
-    @Request() req,
-  ) {
-    const images = files.map((file) => `/uploads/${file.filename}`);
-    createDessinDto.images = images;
-    return this.produitsService.createDessinNumerique(
-      createDessinDto,
-      req.user,
-    );
-  }
-
-  @Post('sticker')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Créer un sticker (admin uniquement)' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        nom: { type: 'string', example: 'Sticker Cool' },
-        description: { type: 'string', example: 'Description du sticker' },
-        prix: { type: 'number', example: 15.99 },
-        stock: { type: 'number', example: 200 },
-        categorie_id: { type: 'number', example: 3 },
-        promotion_ids: {
-          type: 'array',
-          items: { type: 'number' },
-          example: [1],
-        },
-        format: { type: 'string', example: 'rond' },
-        dimensions: { type: 'string', example: '10x10cm' },
-        materiau: { type: 'string', example: 'vinyle' },
-        etat: { type: 'boolean', example: true },
-        files: { type: 'array', items: { type: 'string', format: 'binary' } },
-      },
-      required: [
-        'nom',
-        'prix',
-        'categorie_id',
-        'format',
-        'dimensions',
-        'materiau',
-        'etat',
-      ],
-    },
-  })
-  @ApiResponse({ status: 201, description: 'Sticker créé avec succès.' })
-  async createSticker(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() createStickerDto: CreateStickerDto,
-    @Request() req,
-  ) {
-    const images = files.map((file) => `/uploads/${file.filename}`);
-    createStickerDto.images = images;
-    return this.produitsService.createSticker(createStickerDto, req.user);
   }
 
   @Patch(':id')
@@ -241,58 +169,28 @@ export class ProduitsController {
     return this.produitsService.update(+id, updateProduitDto, req.user);
   }
 
-  @Patch('dessin-numerique/:id')
+  @Patch(':id/detail')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Mettre à jour un dessin numérique (admin uniquement)',
+    summary: 'Mettre à jour les détails du produit (admin uniquement)',
   })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    description: 'ID du dessin numérique',
-  })
-  @ApiBody({ type: UpdateDessinNumeriqueDto })
+  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
+  @ApiBody({ type: UpdateProduitDetailDto })
   @ApiResponse({
     status: 200,
-    description: 'Dessin numérique mis à jour avec succès.',
+    description: 'Détails du produit mis à jour avec succès.',
   })
-  async updateDessinNumerique(
+  async updateProduitDetail(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateDessinDto: UpdateDessinNumeriqueDto,
+    @Body() updateDetailDto: UpdateProduitDetailDto,
     @Request() req,
   ) {
-    return this.produitsService.updateDessinNumerique(
+    return this.produitsService.updateProduitDetail(
       id,
-      updateDessinDto,
+      updateDetailDto,
       req.user,
     );
-  }
-
-  @Patch('sticker/:id')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Mettre à jour un sticker (admin uniquement)' })
-  @ApiParam({ name: 'id', type: 'number', description: 'ID du sticker' })
-  @ApiBody({ type: UpdateStickerDto })
-  @ApiResponse({ status: 200, description: 'Sticker mis à jour avec succès.' })
-  async updateSticker(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateStickerDto: UpdateStickerDto,
-    @Request() req,
-  ) {
-    return this.produitsService.updateSticker(id, updateStickerDto, req.user);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Supprimer un produit (admin uniquement)' })
-  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
-  @ApiResponse({ status: 200, description: 'Produit supprimé avec succès.' })
-  async remove(@Param('id') id: string, @Request() req) {
-    await this.produitsService.remove(+id, req.user);
-    return { message: `Produit #${id} supprimé` };
   }
 
   @Patch(':id/stock')
@@ -326,8 +224,7 @@ export class ProduitsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Appliquer ou retirer une promotion (admin uniquement)',
-    description:
-      'Met à jour la liste des promotions du produit. La gestion du statut se fait directement sur le front.',
+    description: 'Met à jour la promotion appliquée directement au produit.',
   })
   @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
   @ApiBody({
@@ -336,15 +233,12 @@ export class ProduitsController {
     schema: {
       type: 'object',
       properties: {
-        promotion_id: { type: 'number', example: 2 },
+        promotion_id: { type: 'number', example: 1 },
       },
       required: ['promotion_id'],
     },
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Promotion appliquée (ou retirée) du produit avec succès.',
-  })
+  @ApiResponse({ status: 200, description: 'Promotion appliquée avec succès.' })
   async applyPromotion(
     @Param('id') id: string,
     @Body('promotion_id') promotionId: number | null,
@@ -352,6 +246,42 @@ export class ProduitsController {
   ) {
     return await this.produitsService.applyPromotion(
       +id,
+      promotionId,
+      req.user,
+    );
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Supprimer un produit (admin uniquement)' })
+  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
+  @ApiResponse({ status: 200, description: 'Produit supprimé avec succès.' })
+  async remove(@Param('id') id: string, @Request() req) {
+    await this.produitsService.remove(+id, req.user);
+    return { message: `Produit #${id} supprimé` };
+  }
+
+  @Delete(':id/promotion/:promotionId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Supprimer la promotion appliquée au produit (admin uniquement)',
+  })
+  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
+  @ApiParam({
+    name: 'promotionId',
+    type: 'number',
+    description: 'ID de la promotion à retirer',
+  })
+  @ApiResponse({ status: 200, description: 'Promotion supprimée avec succès.' })
+  async removePromotionFromProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('promotionId', ParseIntPipe) promotionId: number,
+    @Request() req,
+  ) {
+    return this.produitsService.removePromotionFromProduct(
+      id,
       promotionId,
       req.user,
     );
@@ -376,33 +306,5 @@ export class ProduitsController {
   })
   async getProductsWithActivePromotion() {
     return this.produitsService.findProductsWithActivePromotion();
-  }
-
-  @Delete(':id/promotion/:promotionId')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: "Supprimer une promotion d'un produit (admin uniquement)",
-  })
-  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
-  @ApiParam({
-    name: 'promotionId',
-    type: 'number',
-    description: 'ID de la promotion à retirer',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Promotion supprimée du produit avec succès.',
-  })
-  async removePromotionFromProduct(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('promotionId', ParseIntPipe) promotionId: number,
-    @Request() req,
-  ) {
-    return this.produitsService.removePromotionFromProduct(
-      id,
-      promotionId,
-      req.user,
-    );
   }
 }

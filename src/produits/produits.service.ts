@@ -6,23 +6,19 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, Not } from 'typeorm';
-import { Produit } from './entities/produit.entity';
+import { Produit, ProduitType } from './entities/produit.entity';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { ProduitImage } from './entities/produit-image.entity';
 import { CreateProduitDto } from './dto/create-produit.dto';
 import { UpdateProduitDto } from './dto/update-produit.dto';
-import { CreateDessinNumeriqueDto } from './dto/create-dessin-numerique.dto';
-import { CreateStickerDto } from './dto/create-sticker.dto';
-import { DessinNumerique } from './entities/dessin-numerique.entity';
-import { Sticker } from './entities/sticker.entity';
+import { ProduitDetail } from './entities/produit-detail.entity';
 import { ArticlePanier } from 'src/panier/entities/article-panier.entity';
 import { WishlistItem } from 'src/wishlist/entities/wishlist-item.entity';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
 import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
 import { Inventaire } from './entities/inventaire.entity';
 import { HistoriqueInventaire } from './entities/historique_inventaire.entity';
-import { UpdateDessinNumeriqueDto } from './dto/update-dessin-numerique.dto';
-import { UpdateStickerDto } from './dto/update-sticker.dto';
+import { UpdateProduitDetailDto } from './dto/update-produit-detail.dto';
 
 @Injectable()
 export class ProduitsService {
@@ -35,11 +31,8 @@ export class ProduitsService {
     @InjectRepository(ProduitImage)
     private readonly produitImageRepository: Repository<ProduitImage>,
 
-    @InjectRepository(DessinNumerique)
-    private readonly dessinRepository: Repository<DessinNumerique>,
-
-    @InjectRepository(Sticker)
-    private readonly stickerRepository: Repository<Sticker>,
+    @InjectRepository(ProduitDetail)
+    private readonly produitDetailRepository: Repository<ProduitDetail>,
 
     @InjectRepository(SousCategorie)
     private readonly sousCategorieRepository: Repository<SousCategorie>,
@@ -72,14 +65,22 @@ export class ProduitsService {
       images,
       etat,
       sousCategorieIds,
-      promotion_ids,
+      promotion_id,
       stock,
+      detail,
       ...produitData
     } = createProduitDto;
     const produit = this.produitRepository.create(produitData);
     produit.etat = this.normalizeEtat(etat);
+    produit.type = createProduitDto.type;
+    // Si une promotion est fournie, la récupérer et l'assigner
+    if (promotion_id) {
+      const promo = await this.promotionsService.findOne(promotion_id);
+      produit.promotion = promo;
+    }
     const savedProduct = await this.produitRepository.save(produit);
 
+    // Gestion du stock
     if (stock !== undefined) {
       const inventaire = this.inventaireRepository.create({
         produit_id: savedProduct.id,
@@ -94,6 +95,7 @@ export class ProduitsService {
       });
     }
 
+    // Sauvegarde des images
     if (images && images.length > 0) {
       for (const url of images) {
         const produitImage = this.produitImageRepository.create({
@@ -104,16 +106,7 @@ export class ProduitsService {
       }
     }
 
-    if (promotion_ids && promotion_ids.length > 0) {
-      const promotions = await Promise.all(
-        promotion_ids.map(
-          async (id) => await this.promotionsService.findOne(id),
-        ),
-      );
-      savedProduct.promotions = promotions;
-      await this.produitRepository.save(savedProduct);
-    }
-
+    // Association des sous-catégories
     if (sousCategorieIds && sousCategorieIds.length > 0) {
       const sousCategories =
         await this.sousCategorieRepository.findByIds(sousCategorieIds);
@@ -121,125 +114,34 @@ export class ProduitsService {
       await this.produitRepository.save(savedProduct);
     }
 
-    return savedProduct;
-  }
-
-  async createDessinNumerique(
-    createDessinDto: CreateDessinNumeriqueDto,
-    user: UserPayload,
-  ): Promise<Produit> {
-    if (user.role !== 'admin') {
-      throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent créer des produits.',
-      );
-    }
-    const { images, resolution, dimensions, etat, stock, ...produitData } =
-      createDessinDto;
-    const produit = this.produitRepository.create(produitData);
-    produit.etat = this.normalizeEtat(etat);
-    const savedProduct = await this.produitRepository.save(produit);
-
-    if (stock !== undefined) {
-      const inventaire = this.inventaireRepository.create({
+    // Gestion des détails pour les types dessin numérique ou sticker
+    if (
+      (savedProduct.type === ProduitType.DESSIN_NUMERIQUE ||
+        savedProduct.type === ProduitType.STICKER) &&
+      detail
+    ) {
+      const produitDetail = this.produitDetailRepository.create({
         produit_id: savedProduct.id,
-        quantite: stock,
+        format: detail.format,
+        dimensions: detail.dimensions,
+        support: detail.support,
       });
-      await this.inventaireRepository.save(inventaire);
-      await this.historiqueInventaireRepository.save({
-        produit_id: savedProduct.id,
-        quantite_avant: 0,
-        quantite_apres: stock,
-        modifie_par: user.id,
-      });
+      await this.produitDetailRepository.save(produitDetail);
     }
 
-    // Ici, on mappe "resolution" (du DTO) sur "format" de l'entité
-    const dessin = this.dessinRepository.create({
-      produit_id: savedProduct.id,
-      format: resolution,
-      dimensions,
-    });
-    await this.dessinRepository.save(dessin);
-
-    if (images && images.length > 0) {
-      for (const url of images) {
-        const produitImage = this.produitImageRepository.create({
-          produit: savedProduct,
-          url,
-        });
-        await this.produitImageRepository.save(produitImage);
-      }
-    }
-    return savedProduct;
-  }
-
-  async createSticker(
-    createStickerDto: CreateStickerDto,
-    user: UserPayload,
-  ): Promise<Produit> {
-    if (user.role !== 'admin') {
-      throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent créer des produits.',
-      );
-    }
-    const {
-      images,
-      format,
-      dimensions,
-      materiau,
-      etat,
-      stock,
-      ...produitData
-    } = createStickerDto;
-    const produit = this.produitRepository.create(produitData);
-    produit.etat = this.normalizeEtat(etat);
-    const savedProduct = await this.produitRepository.save(produit);
-
-    if (stock !== undefined) {
-      const inventaire = this.inventaireRepository.create({
-        produit_id: savedProduct.id,
-        quantite: stock,
-      });
-      await this.inventaireRepository.save(inventaire);
-      await this.historiqueInventaireRepository.save({
-        produit_id: savedProduct.id,
-        quantite_avant: 0,
-        quantite_apres: stock,
-        modifie_par: user.id,
-      });
-    }
-
-    // Ici, on mappe "materiau" (du DTO) sur "support" de l'entité Sticker
-    const sticker = this.stickerRepository.create({
-      produit_id: savedProduct.id,
-      format,
-      dimensions,
-      support: materiau,
-    });
-    await this.stickerRepository.save(sticker);
-
-    if (images && images.length > 0) {
-      for (const url of images) {
-        const produitImage = this.produitImageRepository.create({
-          produit: savedProduct,
-          url,
-        });
-        await this.produitImageRepository.save(produitImage);
-      }
-    }
     return savedProduct;
   }
 
   async findAll(): Promise<Produit[]> {
     return await this.produitRepository.find({
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
   }
 
   async findOne(id: number): Promise<Produit> {
     const produit = await this.produitRepository.findOne({
       where: { id },
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
@@ -257,12 +159,11 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent mettre à jour des produits.',
       );
     }
-    // Exclure "images" du preload pour éviter les problèmes de type
     const {
       images: _ignored,
       etat,
       sousCategorieIds,
-      promotion_ids,
+      promotion_id,
       stock,
       ...updateData
     } = updateProduitDto;
@@ -276,13 +177,13 @@ export class ProduitsService {
     if (etat !== undefined) {
       produit.etat = this.normalizeEtat(etat);
     }
-    if (promotion_ids !== undefined) {
-      const promotions = await Promise.all(
-        promotion_ids.map(
-          async (id) => await this.promotionsService.findOne(id),
-        ),
-      );
-      produit.promotions = promotions;
+    if (promotion_id !== undefined) {
+      if (promotion_id) {
+        const promo = await this.promotionsService.findOne(promotion_id);
+        produit.promotion = promo;
+      } else {
+        produit.promotion = null;
+      }
     }
     if (sousCategorieIds !== undefined) {
       const sousCategories =
@@ -330,125 +231,30 @@ export class ProduitsService {
     return await this.produitRepository.save(produit);
   }
 
-  async updateDessinNumerique(
+  async updateProduitDetail(
     id: number,
-    updateDessinDto: UpdateDessinNumeriqueDto,
+    updateDetailDto: UpdateProduitDetailDto,
     user: UserPayload,
   ): Promise<Produit> {
     if (user.role !== 'admin') {
       throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent mettre à jour un dessin numérique.',
+        'Seuls les administrateurs peuvent mettre à jour les détails du produit.',
       );
     }
-    // Extraire les champs spécifiques (du DTO, "resolution" sera mappé sur "format")
-    const { resolution, dimensions, stock, ...produitData } = updateDessinDto;
-    const produit = await this.produitRepository.preload({
-      id,
-      ...produitData,
-    } as Partial<Produit>);
+    const produit = await this.findOne(id);
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
     }
-    const dessin = await this.dessinRepository.findOne({
+    const detail = await this.produitDetailRepository.findOne({
       where: { produit_id: id },
     });
-    if (!dessin) {
+    if (!detail) {
       throw new NotFoundException(
-        `Dessin numérique pour le produit #${id} introuvable`,
+        `Détails pour le produit #${id} introuvables`,
       );
     }
-    if (resolution !== undefined) dessin.format = resolution;
-    if (dimensions !== undefined) dessin.dimensions = dimensions;
-    await this.dessinRepository.save(dessin);
-    if (stock !== undefined) {
-      let inventaire = await this.inventaireRepository.findOne({
-        where: { produit_id: id },
-      });
-      if (!inventaire) {
-        inventaire = this.inventaireRepository.create({
-          produit_id: id,
-          quantite: stock,
-        });
-        await this.inventaireRepository.save(inventaire);
-        await this.historiqueInventaireRepository.save({
-          produit_id: id,
-          quantite_avant: 0,
-          quantite_apres: stock,
-          modifie_par: user.id,
-        });
-      } else {
-        const previousStock = inventaire.quantite;
-        inventaire.quantite = stock;
-        await this.inventaireRepository.save(inventaire);
-        await this.historiqueInventaireRepository.save({
-          produit_id: id,
-          quantite_avant: previousStock,
-          quantite_apres: stock,
-          modifie_par: user.id,
-        });
-      }
-    }
-    return await this.produitRepository.save(produit);
-  }
-
-  async updateSticker(
-    id: number,
-    updateStickerDto: UpdateStickerDto,
-    user: UserPayload,
-  ): Promise<Produit> {
-    if (user.role !== 'admin') {
-      throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent mettre à jour un sticker.',
-      );
-    }
-    // Extraire les champs spécifiques (remarquez que "materiau" sera mappé sur "support")
-    const { format, dimensions, materiau, stock, ...produitData } =
-      updateStickerDto;
-    const produit = await this.produitRepository.preload({
-      id,
-      ...produitData,
-    } as Partial<Produit>);
-    if (!produit) {
-      throw new NotFoundException(`Produit #${id} introuvable`);
-    }
-    const sticker = await this.stickerRepository.findOne({
-      where: { produit_id: id },
-    });
-    if (!sticker) {
-      throw new NotFoundException(`Sticker pour le produit #${id} introuvable`);
-    }
-    if (format !== undefined) sticker.format = format;
-    if (dimensions !== undefined) sticker.dimensions = dimensions;
-    if (materiau !== undefined) sticker.support = materiau;
-    await this.stickerRepository.save(sticker);
-    if (stock !== undefined) {
-      let inventaire = await this.inventaireRepository.findOne({
-        where: { produit_id: id },
-      });
-      if (!inventaire) {
-        inventaire = this.inventaireRepository.create({
-          produit_id: id,
-          quantite: stock,
-        });
-        await this.inventaireRepository.save(inventaire);
-        await this.historiqueInventaireRepository.save({
-          produit_id: id,
-          quantite_avant: 0,
-          quantite_apres: stock,
-          modifie_par: user.id,
-        });
-      } else {
-        const previousStock = inventaire.quantite;
-        inventaire.quantite = stock;
-        await this.inventaireRepository.save(inventaire);
-        await this.historiqueInventaireRepository.save({
-          produit_id: id,
-          quantite_avant: previousStock,
-          quantite_apres: stock,
-          modifie_par: user.id,
-        });
-      }
-    }
+    Object.assign(detail, updateDetailDto);
+    await this.produitDetailRepository.save(detail);
     return await this.produitRepository.save(produit);
   }
 
@@ -520,15 +326,18 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent appliquer une promotion.',
       );
     }
-    const produit = await this.findOne(id);
+    const produit = await this.produitRepository.findOne({
+      where: { id },
+      relations: ['promotions'],
+    });
+    if (!produit) {
+      throw new NotFoundException(`Produit #${id} introuvable`);
+    }
     if (promotionId !== null) {
       const promotion = await this.promotionsService.findOne(promotionId);
-      produit.promotions = produit.promotions || [];
-      if (!produit.promotions.find((p) => p.id === promotion.id)) {
-        produit.promotions.push(promotion);
-      }
+      produit.promotion = promotion;
     } else {
-      produit.promotions = [];
+      produit.promotion = null;
     }
     return await this.produitRepository.save(produit);
   }
@@ -539,32 +348,34 @@ export class ProduitsService {
     }
     return await this.produitRepository.find({
       where: { nom: ILike(`%${nom}%`) },
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
   }
 
   async findByCategory(categoryId: number): Promise<Produit[]> {
     return await this.produitRepository.find({
       where: { categorie_id: categoryId },
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
   }
 
   async findRecommendedProducts(productId: number): Promise<Produit[]> {
-    const product = await this.findOne(productId);
+    const product = await this.produitRepository.findOne({
+      where: { id: productId },
+    });
     if (!product) {
       throw new NotFoundException(`Produit #${productId} introuvable`);
     }
     const sameCategoryProducts = await this.produitRepository.find({
       where: { categorie_id: product.categorie_id, id: Not(productId) },
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
     const shuffledSameCategory = sameCategoryProducts.sort(
       () => Math.random() - 0.5,
     );
     const otherProducts = await this.produitRepository.find({
       where: { categorie_id: Not(product.categorie_id) },
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
     return [...shuffledSameCategory, ...otherProducts];
   }
@@ -574,7 +385,7 @@ export class ProduitsService {
     return await this.produitRepository
       .createQueryBuilder('produit')
       .leftJoinAndSelect('produit.images', 'images')
-      .leftJoinAndSelect('produit.promotions', 'promotions')
+      .leftJoinAndSelect('produit.promotion', 'promotion')
       .leftJoinAndSelect('produit.sousCategories', 'sousCategories')
       .where('produit.created_at >= :sevenDaysAgo', { sevenDaysAgo })
       .getMany();
@@ -583,17 +394,14 @@ export class ProduitsService {
   async findProductsWithActivePromotion(): Promise<Produit[]> {
     const products = await this.produitRepository.find({
       where: { etat: true },
-      relations: ['images', 'promotions', 'sousCategories'],
+      relations: ['images', 'promotion', 'sousCategories'],
     });
     const now = new Date();
     return products.filter(
       (product) =>
-        product.promotions &&
-        product.promotions.some(
-          (promo) =>
-            now >= new Date(promo.date_debut) &&
-            now <= new Date(promo.date_fin),
-        ),
+        product.promotion &&
+        now >= new Date(product.promotion.date_debut) &&
+        now <= new Date(product.promotion.date_fin),
     );
   }
 
@@ -609,12 +417,15 @@ export class ProduitsService {
     }
     const product = await this.produitRepository.findOne({
       where: { id: productId },
-      relations: ['promotions'],
+      relations: ['promotion'],
     });
     if (!product) {
       throw new NotFoundException(`Produit #${productId} introuvable`);
     }
-    product.promotions = product.promotions.filter((p) => p.id !== promotionId);
+    // Si la promotion assignée correspond à l'ID à retirer, on la supprime
+    if (product.promotion && product.promotion.id === promotionId) {
+      product.promotion = null;
+    }
     return await this.produitRepository.save(product);
   }
 }

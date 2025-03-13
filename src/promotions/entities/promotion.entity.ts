@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { PromotionType } from '../enums/promotion-type.enum';
 import { PromotionScope } from '../enums/promotion-scope.enum';
 import { Produit } from 'src/produits/entities/produit.entity';
@@ -49,6 +49,6 @@ export class Promotion {
   etat: boolean;
 
   // Relation ManyToMany avec Produit
-  @ManyToMany(() => Produit, (produit) => produit.promotions)
+  @OneToMany(() => Produit, (produit) => produit.promotion)
   produits: Produit[];
 }

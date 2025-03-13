@@ -25,8 +25,6 @@ import { Wishlist } from './wishlist/entities/wishlist.entity';
 import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
-import { DessinNumerique } from './produits/entities/dessin-numerique.entity';
-import { Sticker } from './produits/entities/sticker.entity';
 import { AdresseModule } from './adresses/adresse.module';
 import { Inventaire } from './produits/entities/inventaire.entity';
 import { HistoriqueInventaire } from './produits/entities/historique_inventaire.entity';
@@ -60,8 +58,6 @@ import { HistoriqueInventaire } from './produits/entities/historique_inventaire.
         Commande,
         Wishlist,
         WishlistItem,
-        DessinNumerique,
-        Sticker,
         Inventaire,
         HistoriqueInventaire,
       ],

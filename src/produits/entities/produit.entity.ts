@@ -8,15 +8,20 @@ import {
   UpdateDateColumn,
   ManyToMany,
   JoinTable,
-  TableInheritance,
+  ManyToOne,
 } from 'typeorm';
 import { ProduitImage } from './produit-image.entity';
 import { Promotion } from 'src/promotions/entities/promotion.entity';
 import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
 
-@Entity()
-@TableInheritance({ column: { type: 'varchar', name: 'type' } })
-export abstract class Produit {
+export enum ProduitType {
+  DESSIN_NUMERIQUE = 'dessin numérique',
+  STICKER = 'sticker',
+  AUTRE = 'autre',
+}
+
+@Entity('produit')
+export class Produit {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -35,8 +40,8 @@ export abstract class Produit {
   @Column({ default: true })
   etat: boolean;
 
-  @Column({ default: 'dessin numerique' })
-  type: string;
+  @Column({ type: 'varchar', default: ProduitType.DESSIN_NUMERIQUE })
+  type: ProduitType;
 
   @CreateDateColumn()
   created_at: Date;
@@ -47,16 +52,18 @@ export abstract class Produit {
   @OneToMany(() => ProduitImage, (image) => image.produit, { cascade: true })
   images: ProduitImage[];
 
-  @ManyToMany(() => Promotion, (promotion) => promotion.produits, {
+  /**
+   * Relation ManyToOne pour indiquer qu'un produit ne peut avoir qu'une seule promotion
+   * (mais une promotion peut s'appliquer à plusieurs produits).
+   * => crée la colonne "promotion_id" dans la table "produit".
+   */
+  @ManyToOne(() => Promotion, (promotion) => promotion.produits, {
+    nullable: true,
     cascade: true,
   })
-  @JoinTable({
-    name: 'promotion_produit',
-    joinColumn: { name: 'product_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'promotion_id', referencedColumnName: 'id' },
-  })
-  promotions: Promotion[];
+  promotion: Promotion | null;
 
+  // Relation ManyToMany vers SousCategorie (ça, on le garde)
   @ManyToMany(() => SousCategorie, (sousCategorie) => sousCategorie.produits, {
     cascade: true,
   })
