@@ -13,7 +13,6 @@ import { Produit } from './produits/entities/produit.entity';
 import { ProduitImage } from './produits/entities/produit-image.entity';
 import { CategoriesModule } from './categories/categories.module';
 import { Category } from './categories/entities/category.entity';
-import { SousCategorie } from './categories/entities/sous-categorie.entity';
 import { PromotionsModule } from './promotions/promotions.module';
 import { Promotion } from './promotions/entities/promotion.entity';
 import { PanierModule } from './panier/panier.module';
@@ -26,8 +25,6 @@ import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { AdresseModule } from './adresses/adresse.module';
-import { Inventaire } from './produits/entities/inventaire.entity';
-import { HistoriqueInventaire } from './produits/entities/historique_inventaire.entity';
 
 @Module({
   imports: [
@@ -51,15 +48,12 @@ import { HistoriqueInventaire } from './produits/entities/historique_inventaire.
         Produit,
         ProduitImage,
         Category,
-        SousCategorie,
         Promotion,
         Panier,
         ArticlePanier,
         Commande,
         Wishlist,
         WishlistItem,
-        Inventaire,
-        HistoriqueInventaire,
       ],
       synchronize: true,
     }),

@@ -49,6 +49,6 @@ export class Promotion {
   etat: boolean;
 
   // Relation ManyToMany avec Produit
-  @OneToMany(() => Produit, (produit) => produit.promotion)
+  @OneToMany(() => Produit, (produit) => produit.promotionId)
   produits: Produit[];
 }

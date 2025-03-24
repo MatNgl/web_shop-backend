@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Body,
   Controller,
@@ -13,10 +15,6 @@ import {
   ParseIntPipe,
   Param,
 } from '@nestjs/common';
-import { ProduitsService } from './produits.service';
-import { CreateProduitDto } from './dto/create-produit.dto';
-import { UpdateProduitDto } from './dto/update-produit.dto';
-import { UpdateProduitDetailDto } from './dto/update-produit-detail.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -27,14 +25,124 @@ import {
   ApiQuery,
   ApiConsumes,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerOptions } from 'src/config/multer.config';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { CreateStickerDto } from './dto/create-sticker.dto';
+import { CreateDessinDto } from './dto/create-dessin.dto';
+import { UpdateProduitDto } from './dto/update-produit.dto';
+import { ProduitsService } from './produits.service';
 
 @ApiTags('Produits')
 @Controller('produits')
 export class ProduitsController {
   constructor(private readonly produitsService: ProduitsService) {}
+
+  // Endpoint spécifique pour créer un sticker
+  @Post('sticker')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Créer un sticker (admin uniquement)' })
+  @ApiBody({
+    description: 'Création d’un sticker avec images et données JSON',
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Sticker Cool' },
+        description: { type: 'string', example: 'Un sticker super cool' },
+        stock: { type: 'number', example: 200 },
+        categorie_id: { type: 'number', example: 3 },
+        promotion_id: { type: 'number', example: 1 },
+        etat: { type: 'boolean', example: true },
+        format: { type: 'string', example: 'rond' },
+        dimensions: { type: 'string', example: '10x10cm' },
+        support: { type: 'string', example: 'vinyle' },
+        prix: { type: 'number', example: 15.99 },
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Fichiers image',
+        },
+      },
+      required: [
+        'nom',
+        'description',
+        'stock',
+        'categorie_id',
+        'etat',
+        'format',
+        'dimensions',
+        'support',
+        'prix',
+      ],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Sticker créé avec succès.' })
+  async createSticker(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() createStickerDto: CreateStickerDto,
+    @Request() req,
+  ) {
+    const images = files.map((file) => `/uploads/${file.filename}`);
+    createStickerDto.images = images;
+    return this.produitsService.createSticker(createStickerDto, req.user);
+  }
+
+  // Endpoint spécifique pour créer un dessin
+  @Post('dessin')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
+  @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Créer un dessin (admin uniquement)' })
+  @ApiBody({
+    description: 'Création d’un dessin avec images et données JSON',
+    schema: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string', example: 'Dessin Méduse' },
+        description: { type: 'string', example: 'Un dessin unique' },
+        stock: { type: 'number', example: 50 },
+        categorie_id: { type: 'number', example: 3 },
+        promotion_id: { type: 'number', example: 1 },
+        etat: { type: 'boolean', example: true },
+        format: { type: 'string', example: 'A4' },
+        dimensions: { type: 'string', example: '21x29.7cm' },
+        support: { type: 'string', example: 'papier' },
+        prix: { type: 'number', example: 49.99 },
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Fichiers image',
+        },
+      },
+      required: [
+        'nom',
+        'description',
+        'stock',
+        'categorie_id',
+        'etat',
+        'format',
+        'dimensions',
+        'support',
+        'prix',
+      ],
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Dessin créé avec succès.' })
+  async createDessin(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() createDessinDto: CreateDessinDto,
+    @Request() req,
+  ) {
+    const images = files.map((file) => `/uploads/${file.filename}`);
+    createDessinDto.images = images;
+    return this.produitsService.createDessin(createDessinDto, req.user);
+  }
+
+  // Autres endpoints généraux
 
   @Get()
   @ApiOperation({ summary: 'Récupérer tous les produits' })
@@ -78,82 +186,6 @@ export class ProduitsController {
     return this.produitsService.findOne(id);
   }
 
-  /**
-   * Endpoint de création de produit.
-   * Les données du produit sont envoyées en JSON (dans le body) et les images via le champ "files".
-   */
-  @Post()
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
-  @ApiBearerAuth('access-token')
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Créer un nouveau produit (admin uniquement)' })
-  @ApiBody({
-    description:
-      'Créer un nouveau produit avec upload de plusieurs images et données JSON',
-    schema: {
-      type: 'object',
-      properties: {
-        nom: { type: 'string', example: 'Sticker Cool' },
-        description: { type: 'string', example: 'Mon sticker super cool' },
-        prix: { type: 'number', example: 15.99 },
-        stock: { type: 'number', example: 200 },
-        categorie_id: { type: 'number', example: 3 },
-        // Ici, on attend un seul ID de promotion
-        promotion_id: { type: 'number', example: 1 },
-        type: {
-          type: 'string',
-          enum: ['dessin numérique', 'sticker', 'autre'],
-          example: 'sticker',
-        },
-        etat: { type: 'boolean', example: true },
-        sousCategorieIds: {
-          type: 'object',
-          items: { type: 'number' },
-          example: [1, 2],
-        },
-        detail: {
-          type: 'object',
-          properties: {
-            format: { type: 'string', example: 'rond' },
-            dimensions: { type: 'string', example: '10x10cm' },
-            support: { type: 'string', example: 'vinyle' },
-          },
-          example: {
-            format: 'rond',
-            dimensions: '10x10cm',
-            support: 'vinyle',
-          },
-        },
-        files: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-          description:
-            'Sélectionnez plusieurs images depuis votre explorateur de fichiers',
-        },
-      },
-      required: [
-        'nom',
-        'description',
-        'stock',
-        'prix',
-        'categorie_id',
-        'type',
-        'etat',
-      ],
-    },
-  })
-  @ApiResponse({ status: 201, description: 'Produit créé avec succès.' })
-  async create(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() createProduitDto: CreateProduitDto,
-    @Request() req,
-  ) {
-    const images = files.map((file) => `/uploads/${file.filename}`);
-    createProduitDto.images = images;
-    return this.produitsService.create(createProduitDto, req.user);
-  }
-
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -167,56 +199,6 @@ export class ProduitsController {
     @Request() req,
   ) {
     return this.produitsService.update(+id, updateProduitDto, req.user);
-  }
-
-  @Patch(':id/detail')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Mettre à jour les détails du produit (admin uniquement)',
-  })
-  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
-  @ApiBody({ type: UpdateProduitDetailDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Détails du produit mis à jour avec succès.',
-  })
-  async updateProduitDetail(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateDetailDto: UpdateProduitDetailDto,
-    @Request() req,
-  ) {
-    return this.produitsService.updateProduitDetail(
-      id,
-      updateDetailDto,
-      req.user,
-    );
-  }
-
-  @Patch(':id/stock')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Mettre à jour le stock d’un produit (admin uniquement)',
-  })
-  @ApiParam({ name: 'id', type: 'number', description: 'ID du produit' })
-  @ApiBody({
-    description: 'Nouvelle quantité en stock',
-    schema: {
-      type: 'object',
-      properties: {
-        stock: { type: 'number', example: 150 },
-      },
-      required: ['stock'],
-    },
-  })
-  @ApiResponse({ status: 200, description: 'Stock mis à jour avec succès.' })
-  async updateStock(
-    @Param('id') id: string,
-    @Body('stock') stock: number,
-    @Request() req,
-  ) {
-    return await this.produitsService.updateStock(+id, stock, req.user);
   }
 
   @Patch(':id/promotion')

@@ -6,19 +6,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, Not } from 'typeorm';
-import { Produit, ProduitType } from './entities/produit.entity';
+import { Produit } from './entities/produit.entity';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { ProduitImage } from './entities/produit-image.entity';
-import { CreateProduitDto } from './dto/create-produit.dto';
+import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
+import { CreateStickerDto } from './dto/create-sticker.dto';
+import { CreateDessinDto } from './dto/create-dessin.dto';
+import { Sticker } from './entities/sticker.entity';
+import { Dessin } from './entities/dessin.entity';
 import { UpdateProduitDto } from './dto/update-produit.dto';
-import { ProduitDetail } from './entities/produit-detail.entity';
 import { ArticlePanier } from 'src/panier/entities/article-panier.entity';
 import { WishlistItem } from 'src/wishlist/entities/wishlist-item.entity';
-import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
-import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
-import { Inventaire } from './entities/inventaire.entity';
-import { HistoriqueInventaire } from './entities/historique_inventaire.entity';
-import { UpdateProduitDetailDto } from './dto/update-produit-detail.dto';
 
 @Injectable()
 export class ProduitsService {
@@ -26,22 +24,16 @@ export class ProduitsService {
     @InjectRepository(Produit)
     private readonly produitRepository: Repository<Produit>,
 
-    private readonly promotionsService: PromotionsService,
-
     @InjectRepository(ProduitImage)
     private readonly produitImageRepository: Repository<ProduitImage>,
 
-    @InjectRepository(ProduitDetail)
-    private readonly produitDetailRepository: Repository<ProduitDetail>,
+    @InjectRepository(Sticker)
+    private readonly stickerRepository: Repository<Sticker>,
 
-    @InjectRepository(SousCategorie)
-    private readonly sousCategorieRepository: Repository<SousCategorie>,
+    @InjectRepository(Dessin)
+    private readonly dessinRepository: Repository<Dessin>,
 
-    @InjectRepository(Inventaire)
-    private readonly inventaireRepository: Repository<Inventaire>,
-
-    @InjectRepository(HistoriqueInventaire)
-    private readonly historiqueInventaireRepository: Repository<HistoriqueInventaire>,
+    private readonly promotionsService: PromotionsService,
   ) {}
 
   private normalizeEtat(etat: boolean | string | undefined): boolean {
@@ -52,8 +44,9 @@ export class ProduitsService {
     return etat;
   }
 
-  async create(
-    createProduitDto: CreateProduitDto,
+  // Méthode spécifique pour créer un sticker
+  async createSticker(
+    createStickerDto: CreateStickerDto,
     user: UserPayload,
   ): Promise<Produit> {
     if (user.role !== 'admin') {
@@ -63,85 +56,122 @@ export class ProduitsService {
     }
     const {
       images,
-      etat,
-      sousCategorieIds,
-      promotion_id,
       stock,
-      detail,
+      format,
+      dimensions,
+      support,
+      prix,
+      promotionId,
+      // Retrait de sousCategorieIds
       ...produitData
-    } = createProduitDto;
-    const produit = this.produitRepository.create(produitData);
-    produit.etat = this.normalizeEtat(etat);
-    produit.type = createProduitDto.type;
-    // Si une promotion est fournie, la récupérer et l'assigner
-    if (promotion_id) {
-      const promo = await this.promotionsService.findOne(promotion_id);
-      produit.promotion = promo;
-    }
-    const savedProduct = await this.produitRepository.save(produit);
+    } = createStickerDto;
 
-    // Gestion du stock
-    if (stock !== undefined) {
-      const inventaire = this.inventaireRepository.create({
-        produit_id: savedProduct.id,
-        quantite: stock,
-      });
-      await this.inventaireRepository.save(inventaire);
-      await this.historiqueInventaireRepository.save({
-        produit_id: savedProduct.id,
-        quantite_avant: 0,
-        quantite_apres: stock,
-        modifie_par: user.id,
-      });
+    // Création de l'enregistrement commun dans la table Produit
+    const produit = this.produitRepository.create({
+      ...produitData,
+      categorie_id: createStickerDto.categorie_id,
+    });
+    produit.etat = this.normalizeEtat(createStickerDto.etat);
+    if (promotionId) {
+      await this.promotionsService.findOne(promotionId);
+      produit.promotionId = promotionId;
     }
+    const savedProduit = await this.produitRepository.save(produit);
 
-    // Sauvegarde des images
+    // Sauvegarde des images associées
     if (images && images.length > 0) {
       for (const url of images) {
         const produitImage = this.produitImageRepository.create({
-          produit: savedProduct,
+          produit: savedProduit,
           url,
         });
         await this.produitImageRepository.save(produitImage);
       }
     }
 
-    // Association des sous-catégories
-    if (sousCategorieIds && sousCategorieIds.length > 0) {
-      const sousCategories =
-        await this.sousCategorieRepository.findByIds(sousCategorieIds);
-      savedProduct.sousCategories = sousCategories;
-      await this.produitRepository.save(savedProduct);
+    // Création de l'enregistrement spécifique dans la table Sticker
+    const sticker = this.stickerRepository.create({
+      produit_id: savedProduit.id,
+      format,
+      dimensions,
+      support,
+      prix,
+      stock,
+    });
+    await this.stickerRepository.save(sticker);
+
+    return savedProduit;
+  }
+
+  // Méthode spécifique pour créer un dessin
+  async createDessin(
+    createDessinDto: CreateDessinDto,
+    user: UserPayload,
+  ): Promise<Produit> {
+    if (user.role !== 'admin') {
+      throw new UnauthorizedException(
+        'Seuls les administrateurs peuvent créer des produits.',
+      );
+    }
+    const {
+      images,
+      stock,
+      format,
+      dimensions,
+      support,
+      prix,
+      promotionId,
+      // Retrait de sousCategorieIds
+      ...produitData
+    } = createDessinDto;
+
+    // Création de l'enregistrement commun dans la table Produit
+    const produit = this.produitRepository.create({
+      ...produitData,
+      categorie_id: createDessinDto.categorie_id,
+    });
+    produit.etat = this.normalizeEtat(createDessinDto.etat);
+    if (promotionId) {
+      await this.promotionsService.findOne(promotionId);
+      produit.promotionId = promotionId;
+    }
+    const savedProduit = await this.produitRepository.save(produit);
+
+    // Sauvegarde des images associées
+    if (images && images.length > 0) {
+      for (const url of images) {
+        const produitImage = this.produitImageRepository.create({
+          produit: savedProduit,
+          url,
+        });
+        await this.produitImageRepository.save(produitImage);
+      }
     }
 
-    // Gestion des détails pour les types dessin numérique ou sticker
-    if (
-      (savedProduct.type === ProduitType.DESSIN_NUMERIQUE ||
-        savedProduct.type === ProduitType.STICKER) &&
-      detail
-    ) {
-      const produitDetail = this.produitDetailRepository.create({
-        produit_id: savedProduct.id,
-        format: detail.format,
-        dimensions: detail.dimensions,
-        support: detail.support,
-      });
-      await this.produitDetailRepository.save(produitDetail);
-    }
+    // Création de l'enregistrement spécifique dans la table Dessin
+    const dessin = this.dessinRepository.create({
+      produit_id: savedProduit.id,
+      format,
+      dimensions,
+      support,
+      prix,
+      stock,
+    });
+    await this.dessinRepository.save(dessin);
 
-    return savedProduct;
+    return savedProduit;
   }
 
   async findAll(): Promise<Produit[]> {
     return await this.produitRepository.find({
-      relations: ['images', 'promotion', 'sousCategories'],
+      relations: ['images'], // Retrait de sousCategories
     });
   }
 
   async findOne(id: number): Promise<Produit> {
     const produit = await this.produitRepository.findOne({
       where: { id },
-      relations: ['images', 'promotion', 'sousCategories'],
+      relations: ['images'], // Retrait de sousCategories
     });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
@@ -162,9 +192,7 @@ export class ProduitsService {
     const {
       images: _ignored,
       etat,
-      sousCategorieIds,
       promotion_id,
-      stock,
       ...updateData
     } = updateProduitDto;
     const produit = await this.produitRepository.preload({
@@ -179,16 +207,11 @@ export class ProduitsService {
     }
     if (promotion_id !== undefined) {
       if (promotion_id) {
-        const promo = await this.promotionsService.findOne(promotion_id);
-        produit.promotion = promo;
+        await this.promotionsService.findOne(promotion_id);
+        produit.promotionId = promotion_id;
       } else {
-        produit.promotion = null;
+        produit.promotionId = undefined;
       }
-    }
-    if (sousCategorieIds !== undefined) {
-      const sousCategories =
-        await this.sousCategorieRepository.findByIds(sousCategorieIds);
-      produit.sousCategories = sousCategories;
     }
     if (_ignored) {
       await this.produitImageRepository.delete({ produit: { id } });
@@ -200,61 +223,6 @@ export class ProduitsService {
         await this.produitImageRepository.save(produitImage);
       }
     }
-    if (stock !== undefined) {
-      let inventaire = await this.inventaireRepository.findOne({
-        where: { produit_id: id },
-      });
-      if (!inventaire) {
-        inventaire = this.inventaireRepository.create({
-          produit_id: id,
-          quantite: stock,
-        });
-        await this.inventaireRepository.save(inventaire);
-        await this.historiqueInventaireRepository.save({
-          produit_id: id,
-          quantite_avant: 0,
-          quantite_apres: stock,
-          modifie_par: user.id,
-        });
-      } else {
-        const previousStock = inventaire.quantite;
-        inventaire.quantite = stock;
-        await this.inventaireRepository.save(inventaire);
-        await this.historiqueInventaireRepository.save({
-          produit_id: id,
-          quantite_avant: previousStock,
-          quantite_apres: stock,
-          modifie_par: user.id,
-        });
-      }
-    }
-    return await this.produitRepository.save(produit);
-  }
-
-  async updateProduitDetail(
-    id: number,
-    updateDetailDto: UpdateProduitDetailDto,
-    user: UserPayload,
-  ): Promise<Produit> {
-    if (user.role !== 'admin') {
-      throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent mettre à jour les détails du produit.',
-      );
-    }
-    const produit = await this.findOne(id);
-    if (!produit) {
-      throw new NotFoundException(`Produit #${id} introuvable`);
-    }
-    const detail = await this.produitDetailRepository.findOne({
-      where: { produit_id: id },
-    });
-    if (!detail) {
-      throw new NotFoundException(
-        `Détails pour le produit #${id} introuvables`,
-      );
-    }
-    Object.assign(detail, updateDetailDto);
-    await this.produitDetailRepository.save(detail);
     return await this.produitRepository.save(produit);
   }
 
@@ -276,46 +244,6 @@ export class ProduitsService {
     }
   }
 
-  async updateStock(
-    id: number,
-    newStock: number,
-    user: UserPayload,
-  ): Promise<Produit> {
-    if (user.role !== 'admin') {
-      throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent mettre à jour le stock.',
-      );
-    }
-    const produit = await this.findOne(id);
-    let inventaire = await this.inventaireRepository.findOne({
-      where: { produit_id: id },
-    });
-    if (!inventaire) {
-      inventaire = this.inventaireRepository.create({
-        produit_id: id,
-        quantite: newStock,
-      });
-      await this.inventaireRepository.save(inventaire);
-      await this.historiqueInventaireRepository.save({
-        produit_id: id,
-        quantite_avant: 0,
-        quantite_apres: newStock,
-        modifie_par: user.id,
-      });
-    } else {
-      const previousStock = inventaire.quantite;
-      inventaire.quantite = newStock;
-      await this.inventaireRepository.save(inventaire);
-      await this.historiqueInventaireRepository.save({
-        produit_id: id,
-        quantite_avant: previousStock,
-        quantite_apres: newStock,
-        modifie_par: user.id,
-      });
-    }
-    return produit;
-  }
-
   async applyPromotion(
     id: number,
     promotionId: number | null,
@@ -326,18 +254,15 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent appliquer une promotion.',
       );
     }
-    const produit = await this.produitRepository.findOne({
-      where: { id },
-      relations: ['promotions'],
-    });
+    const produit = await this.produitRepository.findOne({ where: { id } });
     if (!produit) {
       throw new NotFoundException(`Produit #${id} introuvable`);
     }
     if (promotionId !== null) {
-      const promotion = await this.promotionsService.findOne(promotionId);
-      produit.promotion = promotion;
+      await this.promotionsService.findOne(promotionId);
+      produit.promotionId = promotionId;
     } else {
-      produit.promotion = null;
+      produit.promotionId = undefined;
     }
     return await this.produitRepository.save(produit);
   }
@@ -348,14 +273,14 @@ export class ProduitsService {
     }
     return await this.produitRepository.find({
       where: { nom: ILike(`%${nom}%`) },
-      relations: ['images', 'promotion', 'sousCategories'],
+      relations: ['images'], // Retrait de sousCategories
     });
   }
 
   async findByCategory(categoryId: number): Promise<Produit[]> {
     return await this.produitRepository.find({
       where: { categorie_id: categoryId },
-      relations: ['images', 'promotion', 'sousCategories'],
+      relations: ['images'], // Retrait de sousCategories
     });
   }
 
@@ -368,14 +293,14 @@ export class ProduitsService {
     }
     const sameCategoryProducts = await this.produitRepository.find({
       where: { categorie_id: product.categorie_id, id: Not(productId) },
-      relations: ['images', 'promotion', 'sousCategories'],
+      relations: ['images'], // Retrait de sousCategories
     });
     const shuffledSameCategory = sameCategoryProducts.sort(
       () => Math.random() - 0.5,
     );
     const otherProducts = await this.produitRepository.find({
       where: { categorie_id: Not(product.categorie_id) },
-      relations: ['images', 'promotion', 'sousCategories'],
+      relations: ['images'], // Retrait de sousCategories
     });
     return [...shuffledSameCategory, ...otherProducts];
   }
@@ -385,24 +310,30 @@ export class ProduitsService {
     return await this.produitRepository
       .createQueryBuilder('produit')
       .leftJoinAndSelect('produit.images', 'images')
-      .leftJoinAndSelect('produit.promotion', 'promotion')
-      .leftJoinAndSelect('produit.sousCategories', 'sousCategories')
       .where('produit.created_at >= :sevenDaysAgo', { sevenDaysAgo })
       .getMany();
   }
 
   async findProductsWithActivePromotion(): Promise<Produit[]> {
     const products = await this.produitRepository.find({
-      where: { etat: true },
-      relations: ['images', 'promotion', 'sousCategories'],
+      where: { etat: true, promotionId: Not(null as any) },
+      relations: [], // Retrait de sousCategories
     });
     const now = new Date();
-    return products.filter(
-      (product) =>
-        product.promotion &&
-        now >= new Date(product.promotion.date_debut) &&
-        now <= new Date(product.promotion.date_fin),
-    );
+    const filteredProducts: Produit[] = [];
+    for (const product of products) {
+      if (product.promotionId !== undefined) {
+        const promo = await this.promotionsService.findOne(product.promotionId);
+        if (
+          promo &&
+          now >= new Date(promo.date_debut) &&
+          now <= new Date(promo.date_fin)
+        ) {
+          filteredProducts.push(product);
+        }
+      }
+    }
+    return filteredProducts;
   }
 
   async removePromotionFromProduct(
@@ -417,14 +348,12 @@ export class ProduitsService {
     }
     const product = await this.produitRepository.findOne({
       where: { id: productId },
-      relations: ['promotion'],
     });
     if (!product) {
       throw new NotFoundException(`Produit #${productId} introuvable`);
     }
-    // Si la promotion assignée correspond à l'ID à retirer, on la supprime
-    if (product.promotion && product.promotion.id === promotionId) {
-      product.promotion = null;
+    if (product.promotionId === promotionId) {
+      product.promotionId = undefined;
     }
     return await this.produitRepository.save(product);
   }

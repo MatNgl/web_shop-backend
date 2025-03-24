@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 // src/produits/dto/create-produit.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
@@ -8,10 +9,8 @@ import {
   IsNotEmpty,
   IsArray,
   IsBoolean,
-  IsEnum,
   ValidateNested,
 } from 'class-validator';
-import { ProduitType } from '../entities/produit.entity';
 import { CreateProduitDetailDto } from './create-produit-detail.dto';
 
 export class CreateProduitDto {
@@ -41,13 +40,7 @@ export class CreateProduitDto {
   @Type(() => Number)
   categorie_id: number;
 
-  @ApiProperty({ example: ProduitType.AUTRE, enum: ProduitType })
-  @IsEnum(ProduitType, {
-    message: "Le type doit être 'dessin numérique', 'sticker' ou 'autre'",
-  })
-  type: ProduitType;
-
-  // Promotion appliquée directement : un seul ID (optionnel)
+  // Suppression de ProduitType car il n'est plus exporté depuis l'entité Produit
   @ApiPropertyOptional({
     example: 1,
     description:

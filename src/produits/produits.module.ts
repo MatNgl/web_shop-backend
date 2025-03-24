@@ -5,21 +5,19 @@ import { ProduitsService } from './produits.service';
 import { ProduitsController } from './produits.controller';
 import { Produit } from './entities/produit.entity';
 import { ProduitImage } from './entities/produit-image.entity';
-import { ProduitDetail } from './entities/produit-detail.entity';
 import { PromotionsModule } from '../promotions/promotions.module';
-import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
-import { Inventaire } from './entities/inventaire.entity';
-import { HistoriqueInventaire } from './entities/historique_inventaire.entity';
+// import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
+import { Sticker } from './entities/sticker.entity';
+import { Dessin } from './entities/dessin.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Produit,
       ProduitImage,
-      ProduitDetail,
-      SousCategorie,
-      Inventaire,
-      HistoriqueInventaire,
+      Sticker,
+      Dessin,
+      // SousCategorie (retiré)
     ]),
     PromotionsModule,
   ],
