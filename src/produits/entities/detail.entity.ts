@@ -1,4 +1,3 @@
-// src/produit/entities/dessin.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -8,15 +7,17 @@ import {
 } from 'typeorm';
 import { Produit } from './produit.entity';
 
-@Entity('dessins')
-export class Dessin {
+@Entity('details')
+export class Detail {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
   produit_id: number;
 
-  @ManyToOne(() => Produit, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Produit, (produit) => produit.details, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'produit_id' })
   produit: Produit;
 
