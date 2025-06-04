@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -25,6 +23,8 @@ import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { AdresseModule } from './adresses/adresse.module';
+import { Sticker } from './produits/entities/sticker.entity';
+import { Dessin } from './produits/entities/dessin.entity';
 
 @Module({
   imports: [
@@ -46,6 +46,8 @@ import { AdresseModule } from './adresses/adresse.module';
       entities: [
         User,
         Produit,
+        Sticker,
+        Dessin,
         ProduitImage,
         Category,
         Promotion,
