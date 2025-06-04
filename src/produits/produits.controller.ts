@@ -28,8 +28,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerOptions } from 'src/config/multer.config';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { CreateStickerDto } from './dto/create-sticker.dto';
-import { CreateDessinDto } from './dto/create-dessin.dto';
+import { CreateProduitDto } from './dto/create-produit.dto';
 import { UpdateProduitDto } from './dto/update-produit.dto';
 import { ProduitsService } from './produits.service';
 
@@ -38,108 +37,23 @@ import { ProduitsService } from './produits.service';
 export class ProduitsController {
   constructor(private readonly produitsService: ProduitsService) {}
 
-  // Endpoint spécifique pour créer un sticker
-  @Post('sticker')
+  // Création d'un produit avec ses variantes
+  @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Créer un sticker (admin uniquement)' })
-  @ApiBody({
-    description: 'Création d’un sticker avec images et données JSON',
-    schema: {
-      type: 'object',
-      properties: {
-        nom: { type: 'string', example: 'Sticker Cool' },
-        description: { type: 'string', example: 'Un sticker super cool' },
-        stock: { type: 'number', example: 200 },
-        categorie_id: { type: 'number', example: 3 },
-        promotion_id: { type: 'number', example: 1 },
-        etat: { type: 'boolean', example: true },
-        format: { type: 'string', example: 'rond' },
-        dimensions: { type: 'string', example: '10x10cm' },
-        support: { type: 'string', example: 'vinyle' },
-        prix: { type: 'number', example: 15.99 },
-        files: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-          description: 'Fichiers image',
-        },
-      },
-      required: [
-        'nom',
-        'description',
-        'stock',
-        'categorie_id',
-        'etat',
-        'format',
-        'dimensions',
-        'support',
-        'prix',
-      ],
-    },
-  })
-  @ApiResponse({ status: 201, description: 'Sticker créé avec succès.' })
-  async createSticker(
+  @ApiOperation({ summary: 'Créer un produit (admin uniquement)' })
+  @ApiBody({ type: CreateProduitDto })
+  @ApiResponse({ status: 201, description: 'Produit créé avec succès.' })
+  async create(
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() createStickerDto: CreateStickerDto,
+    @Body() createProduitDto: CreateProduitDto,
     @Request() req,
   ) {
     const images = files.map((file) => `/uploads/${file.filename}`);
-    createStickerDto.images = images;
-    return this.produitsService.createSticker(createStickerDto, req.user);
-  }
-
-  // Endpoint spécifique pour créer un dessin
-  @Post('dessin')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FilesInterceptor('files', 10, multerOptions))
-  @ApiBearerAuth('access-token')
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Créer un dessin (admin uniquement)' })
-  @ApiBody({
-    description: 'Création d’un dessin avec images et données JSON',
-    schema: {
-      type: 'object',
-      properties: {
-        nom: { type: 'string', example: 'Dessin Méduse' },
-        description: { type: 'string', example: 'Un dessin unique' },
-        stock: { type: 'number', example: 50 },
-        categorie_id: { type: 'number', example: 3 },
-        promotion_id: { type: 'number', example: 1 },
-        etat: { type: 'boolean', example: true },
-        format: { type: 'string', example: 'A4' },
-        dimensions: { type: 'string', example: '21x29.7cm' },
-        support: { type: 'string', example: 'papier' },
-        prix: { type: 'number', example: 49.99 },
-        files: {
-          type: 'array',
-          items: { type: 'string', format: 'binary' },
-          description: 'Fichiers image',
-        },
-      },
-      required: [
-        'nom',
-        'description',
-        'stock',
-        'categorie_id',
-        'etat',
-        'format',
-        'dimensions',
-        'support',
-        'prix',
-      ],
-    },
-  })
-  @ApiResponse({ status: 201, description: 'Dessin créé avec succès.' })
-  async createDessin(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body() createDessinDto: CreateDessinDto,
-    @Request() req,
-  ) {
-    const images = files.map((file) => `/uploads/${file.filename}`);
-    createDessinDto.images = images;
-    return this.produitsService.createDessin(createDessinDto, req.user);
+    createProduitDto.images = images;
+    return this.produitsService.create(createProduitDto, req.user);
   }
 
   // Autres endpoints généraux

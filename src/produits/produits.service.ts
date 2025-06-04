@@ -10,8 +10,7 @@ import { Produit } from './entities/produit.entity';
 import { PromotionsService } from 'src/promotions/promotions.service';
 import { ProduitImage } from './entities/produit-image.entity';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
-import { CreateStickerDto } from './dto/create-sticker.dto';
-import { CreateDessinDto } from './dto/create-dessin.dto';
+import { CreateProduitDto } from './dto/create-produit.dto';
 import { Detail } from './entities/detail.entity';
 import { UpdateProduitDto } from './dto/update-produit.dto';
 import { ArticlePanier } from 'src/panier/entities/article-panier.entity';
@@ -40,9 +39,9 @@ export class ProduitsService {
     return etat;
   }
 
-  // Méthode spécifique pour créer un sticker
-  async createSticker(
-    createStickerDto: CreateStickerDto,
+  // Création d'un produit avec ses variantes
+  async create(
+    createProduitDto: CreateProduitDto,
     user: UserPayload,
   ): Promise<Produit> {
     if (user.role !== 'admin') {
@@ -50,31 +49,21 @@ export class ProduitsService {
         'Seuls les administrateurs peuvent créer des produits.',
       );
     }
-    const {
-      images,
-      stock,
-      format,
-      dimensions,
-      support,
-      prix,
-      promotionId,
-      // Retrait de sousCategorieIds
-      ...produitData
-    } = createStickerDto;
+    const { images, details, promotion_id, ...produitData } = createProduitDto;
 
-    // Création de l'enregistrement commun dans la table Produit
     const produit = this.produitRepository.create({
       ...produitData,
-      categorie_id: createStickerDto.categorie_id,
+      categorie_id: createProduitDto.categorie_id,
     });
-    produit.etat = this.normalizeEtat(createStickerDto.etat);
-    if (promotionId) {
-      await this.promotionsService.findOne(promotionId);
-      produit.promotionId = promotionId;
+    produit.etat = this.normalizeEtat(createProduitDto.etat);
+
+    if (promotion_id) {
+      await this.promotionsService.findOne(promotion_id);
+      produit.promotionId = promotion_id;
     }
+
     const savedProduit = await this.produitRepository.save(produit);
 
-    // Sauvegarde des images associées
     if (images && images.length > 0) {
       for (const url of images) {
         const produitImage = this.produitImageRepository.create({
@@ -85,75 +74,19 @@ export class ProduitsService {
       }
     }
 
-    // Création de l'enregistrement spécifique dans la table Detail
-    const detail = this.detailRepository.create({
-      produit_id: savedProduit.id,
-      format,
-      dimensions,
-      support,
-      prix,
-      stock,
-    });
-    await this.detailRepository.save(detail);
-
-    return savedProduit;
-  }
-
-  // Méthode spécifique pour créer un dessin
-  async createDessin(
-    createDessinDto: CreateDessinDto,
-    user: UserPayload,
-  ): Promise<Produit> {
-    if (user.role !== 'admin') {
-      throw new UnauthorizedException(
-        'Seuls les administrateurs peuvent créer des produits.',
-      );
-    }
-    const {
-      images,
-      stock,
-      format,
-      dimensions,
-      support,
-      prix,
-      promotionId,
-      // Retrait de sousCategorieIds
-      ...produitData
-    } = createDessinDto;
-
-    // Création de l'enregistrement commun dans la table Produit
-    const produit = this.produitRepository.create({
-      ...produitData,
-      categorie_id: createDessinDto.categorie_id,
-    });
-    produit.etat = this.normalizeEtat(createDessinDto.etat);
-    if (promotionId) {
-      await this.promotionsService.findOne(promotionId);
-      produit.promotionId = promotionId;
-    }
-    const savedProduit = await this.produitRepository.save(produit);
-
-    // Sauvegarde des images associées
-    if (images && images.length > 0) {
-      for (const url of images) {
-        const produitImage = this.produitImageRepository.create({
-          produit: savedProduit,
-          url,
+    if (details && details.length > 0) {
+      for (const d of details) {
+        const detail = this.detailRepository.create({
+          produit_id: savedProduit.id,
+          format: d.format,
+          dimensions: d.dimensions,
+          support: d.support,
+          prix: d.prix,
+          stock: d.stock,
         });
-        await this.produitImageRepository.save(produitImage);
+        await this.detailRepository.save(detail);
       }
     }
-
-    // Création de l'enregistrement spécifique dans la table Detail
-    const detail = this.detailRepository.create({
-      produit_id: savedProduit.id,
-      format,
-      dimensions,
-      support,
-      prix,
-      stock,
-    });
-    await this.detailRepository.save(detail);
 
     return savedProduit;
   }

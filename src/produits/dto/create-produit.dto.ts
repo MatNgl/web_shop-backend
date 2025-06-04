@@ -24,17 +24,6 @@ export class CreateProduitDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ example: 99.99 })
-  @IsNumber()
-  @Type(() => Number)
-  prix: number;
-
-  @ApiPropertyOptional({ example: 100 })
-  @IsOptional()
-  @IsNumber()
-  @Type(() => Number)
-  stock?: number;
-
   @ApiProperty({ example: 1 })
   @IsNumber()
   @Type(() => Number)
@@ -81,11 +70,12 @@ export class CreateProduitDto {
   sousCategorieIds?: number[];
 
   @ApiPropertyOptional({
-    description:
-      'Détails spécifiques du produit (si type est dessin numérique ou sticker)',
+    description: 'Variantes du produit',
+    type: [CreateProduitDetailDto],
   })
   @IsOptional()
-  @ValidateNested()
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => CreateProduitDetailDto)
-  detail?: CreateProduitDetailDto;
+  details?: CreateProduitDetailDto[];
 }
