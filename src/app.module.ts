@@ -23,8 +23,7 @@ import { WishlistItem } from './wishlist/entities/wishlist-item.entity';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { AdresseModule } from './adresses/adresse.module';
-import { Sticker } from './produits/entities/sticker.entity';
-import { Dessin } from './produits/entities/dessin.entity';
+import { Detail } from './produits/entities/detail.entity';
 
 @Module({
   imports: [
@@ -46,8 +45,7 @@ import { Dessin } from './produits/entities/dessin.entity';
       entities: [
         User,
         Produit,
-        Sticker,
-        Dessin,
+        Detail,
         ProduitImage,
         Category,
         Promotion,

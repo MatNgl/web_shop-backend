@@ -12,8 +12,7 @@ import { ProduitImage } from './entities/produit-image.entity';
 import { UserPayload } from 'src/auth/interfaces/user-payload.interface';
 import { CreateStickerDto } from './dto/create-sticker.dto';
 import { CreateDessinDto } from './dto/create-dessin.dto';
-import { Sticker } from './entities/sticker.entity';
-import { Dessin } from './entities/dessin.entity';
+import { Detail } from './entities/detail.entity';
 import { UpdateProduitDto } from './dto/update-produit.dto';
 import { ArticlePanier } from 'src/panier/entities/article-panier.entity';
 import { WishlistItem } from 'src/wishlist/entities/wishlist-item.entity';
@@ -27,11 +26,8 @@ export class ProduitsService {
     @InjectRepository(ProduitImage)
     private readonly produitImageRepository: Repository<ProduitImage>,
 
-    @InjectRepository(Sticker)
-    private readonly stickerRepository: Repository<Sticker>,
-
-    @InjectRepository(Dessin)
-    private readonly dessinRepository: Repository<Dessin>,
+    @InjectRepository(Detail)
+    private readonly detailRepository: Repository<Detail>,
 
     private readonly promotionsService: PromotionsService,
   ) {}
@@ -89,8 +85,8 @@ export class ProduitsService {
       }
     }
 
-    // Création de l'enregistrement spécifique dans la table Sticker
-    const sticker = this.stickerRepository.create({
+    // Création de l'enregistrement spécifique dans la table Detail
+    const detail = this.detailRepository.create({
       produit_id: savedProduit.id,
       format,
       dimensions,
@@ -98,7 +94,7 @@ export class ProduitsService {
       prix,
       stock,
     });
-    await this.stickerRepository.save(sticker);
+    await this.detailRepository.save(detail);
 
     return savedProduit;
   }
@@ -148,8 +144,8 @@ export class ProduitsService {
       }
     }
 
-    // Création de l'enregistrement spécifique dans la table Dessin
-    const dessin = this.dessinRepository.create({
+    // Création de l'enregistrement spécifique dans la table Detail
+    const detail = this.detailRepository.create({
       produit_id: savedProduit.id,
       format,
       dimensions,
@@ -157,7 +153,7 @@ export class ProduitsService {
       prix,
       stock,
     });
-    await this.dessinRepository.save(dessin);
+    await this.detailRepository.save(detail);
 
     return savedProduit;
   }

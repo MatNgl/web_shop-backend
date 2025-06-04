@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ProduitImage } from './produit-image.entity';
+import { Detail } from './detail.entity';
 // import { SousCategorie } from 'src/categories/entities/sous-categorie.entity';
 
 @Entity('produit')
@@ -38,6 +39,9 @@ export class Produit {
 
   @OneToMany(() => ProduitImage, (image) => image.produit, { cascade: true })
   images: ProduitImage[];
+
+  @OneToMany(() => Detail, (detail) => detail.produit, { cascade: true })
+  details: Detail[];
 
   // Suppression de la relation ManyToMany avec SousCategorie
   // @ManyToMany(() => SousCategorie, (sousCategorie) => sousCategorie.produits, { cascade: true })
